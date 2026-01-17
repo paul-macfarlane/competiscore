@@ -1,0 +1,9 @@
+---
+description: ShadCN's Component Library for styling.
+alwaysApply: false
+---
+# Overview
+
+We use ShadCN's Component Library for styling. We should be use components form the library where possible, and avoid creating custom components unless absolutely necessary.
+
+Consult the [ShadCN Component Library](https://ui.shadcn.com/docs/components) for the available components.
