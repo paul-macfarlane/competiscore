@@ -2,6 +2,12 @@
 
 JG Arcade is a social competitive platform designed to track match results, manage peer-to-peer challenges, and maintain leaderboards for various arcade and office games
 
+## Codebase Standards
+
+See the [.cursor/rules](.cursor/rules) directory for the codebase standards. While these are meant for agents to read, they are also meant to be used as a guide for the developer to follow.
+
+Right now the repo just uses 1 big rule file, but as the codebase grows, it may be split into multiple files.
+
 ## Running Locally
 
 ### Prerequisites
