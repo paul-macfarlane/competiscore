@@ -13,26 +13,31 @@ JG Arcade is a social competitive platform designed to track match results, mana
 ### Running the Application
 
 First, copy the `.env.example` file to `.env` and fill in the values:
+
 ```bash
 cp .env.example .env
 ```
 
 Then, install the dependencies:
+
 ```bash
 pnpm install
 ```
 
 On your first run, you'll want to execute the database migrations to populate the database with the initial schema:
+
 ```bash
 pnpm run db:migrate
 ```
 
 Then, run the database and leave it running in the background:
+
 ```bash
 pnpm run db:local
 ```
 
 Then, in another terminal, run the application:
+
 ```bash
 pnpm run dev
 ```
