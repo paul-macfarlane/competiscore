@@ -1,13 +1,33 @@
-import { config } from "dotenv";
-import { drizzle } from "drizzle-orm/libsql";
+import { Pool } from "@neondatabase/serverless";
+import { ExtractTablesWithRelations } from "drizzle-orm";
+import {
+  NeonDatabase,
+  NeonQueryResultHKT,
+  drizzle as drizzleNeon,
+} from "drizzle-orm/neon-serverless";
+import {
+  NodePgDatabase,
+  NodePgQueryResultHKT,
+  drizzle as drizzlePg,
+} from "drizzle-orm/node-postgres";
+import { PgTransaction } from "drizzle-orm/pg-core";
+
 import * as schema from "./schema";
 
-config({ path: ".env" });
+export type DB = NodePgDatabase<typeof schema> | NeonDatabase<typeof schema>;
 
-export const db = drizzle({
-  connection: {
-    url: process.env.TURSO_CONNECTION_URL!,
-    authToken: process.env.TURSO_AUTH_TOKEN!,
-  },
-  schema,
-});
+export type DBTx = PgTransaction<
+  NodePgQueryResultHKT | NeonQueryResultHKT,
+  typeof schema,
+  ExtractTablesWithRelations<typeof schema>
+>;
+
+let db: DB;
+if (process.env.NODE_ENV === "production") {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+  db = drizzleNeon(pool, { schema });
+} else {
+  db = drizzlePg(process.env.DATABASE_URL!, { schema });
+}
+
+export { db };

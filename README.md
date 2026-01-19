@@ -14,7 +14,7 @@ Right now the repo just uses 1 big rule file, but as the codebase grows, it may 
 
 ### Prerequisites
 
-- [Turso CLI](https://turso.tech/docs/cli/install)
+- [Docker](https://docs.docker.com/get-docker/)
 - [Node.js](https://nodejs.org/en/download/)
 - [pnpm](https://pnpm.io/installation)
 
@@ -30,6 +30,12 @@ Then, install the dependencies:
 
 ```bash
 pnpm install
+```
+
+Now run the database container in the background:
+
+```bash
+docker compose up -d
 ```
 
 On your first run, you'll want to execute the database migrations to populate the database with the initial schema:

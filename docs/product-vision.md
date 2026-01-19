@@ -41,27 +41,28 @@ A **League** is a community of players who compete against each other. Each leag
 
 Each league has three member roles with escalating permissions:
 
-| Permission | Member | Manager | Executive |
-| --- | --- | --- | --- |
-| Play games & record scores | ✓ | ✓ | ✓ |
-| View all members | ✓ | ✓ | ✓ |
-| Create game types |  | ✓ | ✓ |
-| Create tournaments |  | ✓ | ✓ |
-| Create seasons |  | ✓ | ✓ |
-| Invite members |  | ✓ | ✓ |
-| Create placeholder members |  | ✓ | ✓ |
-| Remove members |  | ✓ | ✓ |
-| Manage member roles |  |  | ✓ |
-| Edit league settings |  |  | ✓ |
-| Archive league |  |  | ✓ |
-| Delete league |  |  | ✓ |
-| Transfer executive role |  |  | ✓ |
+| Permission                 | Member | Manager | Executive |
+| -------------------------- | ------ | ------- | --------- |
+| Play games & record scores | ✓      | ✓       | ✓         |
+| View all members           | ✓      | ✓       | ✓         |
+| Create game types          |        | ✓       | ✓         |
+| Create tournaments         |        | ✓       | ✓         |
+| Create seasons             |        | ✓       | ✓         |
+| Invite members             |        | ✓       | ✓         |
+| Create placeholder members |        | ✓       | ✓         |
+| Remove members             |        | ✓       | ✓         |
+| Manage member roles        |        |         | ✓         |
+| Edit league settings       |        |         | ✓         |
+| Archive league             |        |         | ✓         |
+| Delete league              |        |         | ✓         |
+| Transfer executive role    |        |         | ✓         |
 
 ### 2.3 Placeholder Members
 
 **Placeholder members** represent real people who have not yet signed up for the app or joined the league. This allows leagues to start tracking history immediately without waiting for everyone to create accounts. Placeholders have a display name and username. When a real user joins, they can be linked to their placeholder to inherit all match history.
 
 **Placeholder member rules:**
+
 - Can only exist in one league
 - Can only be claimed by one real user
 - An invite can only be associated with one placeholder
@@ -88,6 +89,7 @@ Leagues can create custom game types to track their competitions. Each game type
 Two competitors (individuals or teams) face off. One winner, one loser, or a draw.
 
 **Configuration options:**
+
 - Scoring type: Win/Loss only, or Score-based (e.g., 21-18)
 - Score description: Points, games, sets, or custom label
 - Draws allowed: Yes/No
@@ -103,6 +105,7 @@ Two competitors (individuals or teams) face off. One winner, one loser, or a dra
 Three or more competitors (individuals or teams) in a single match. Results in a ranking (1st, 2nd, 3rd, etc.).
 
 **Configuration options:**
+
 - Scoring type: Ranked finish only, or Score-based ranking
 - Score order: Highest wins or Lowest wins
 - Min/Max players: Configurable range
@@ -117,6 +120,7 @@ Three or more competitors (individuals or teams) in a single match. Results in a
 Asynchronous competition where players submit scores over time against an eternal leaderboard. No head-to-head matches; players compete against all-time records.
 
 **Configuration options:**
+
 - Score order: Highest wins or Lowest wins
 - Score description: Points, time, distance, or custom label
 - Individual or Team: Who can submit scores
@@ -130,7 +134,7 @@ Asynchronous competition where players submit scores over time against an eterna
 
 App administrators provide pre-built templates for common games (e.g., 8-Ball Pool, Ping Pong, Bowling). League managers can use these templates to quickly create game types with sensible defaults, then customize as needed.
 
-*Future: Community-shared templates.*
+_Future: Community-shared templates._
 
 ### 3.5 Game Type Editing Rules
 
@@ -163,7 +167,7 @@ Members can record match results in two ways:
 
 For MVP, matches are assumed accurate when recorded. Trust is placed in the community.
 
-*Future: Dispute/confirmation system.*
+_Future: Dispute/confirmation system._
 
 ### 4.4 Match Immutability
 
@@ -253,7 +257,7 @@ Tournaments are structured bracket competitions using any game type as the match
 - Seeding: Manual or Random
 - Start date/time (manager-specified)
 
-*Future: ELO-based seeding, Double Elimination format*
+_Future: ELO-based seeding, Double Elimination format_
 
 ### 7.3 Tournament Formats (MVP)
 
@@ -394,11 +398,13 @@ All members can view a dashboard showing all league members, their roles, and ba
 Any member can report another member. Reports are visible only to Managers and Executives.
 
 Report includes:
+
 - Reason (selected from categories below)
 - Description (free text)
 - Optional evidence/context
 
 **Report Categories:**
+
 - Unsportsmanlike conduct
 - False match reporting
 - Harassment
@@ -406,12 +412,14 @@ Report includes:
 - Other
 
 **Remediation Options (Managers and Executives):**
+
 - Dismiss report (with documented reason)
 - Warn the member (recorded in their history, visible to league leadership)
 - Suspend member (temporary - cannot record matches or participate in tournaments)
 - Remove member (permanently kicked from league)
 
 **Audit Trail:**
+
 - All reports and remediation actions are logged with timestamps
 - Members can see warnings and actions taken against them
 - Leadership can view a member’s full offense history when reviewing new reports
@@ -532,6 +540,7 @@ The app will launch with all features available but with usage limits clearly co
 ### 14.2 Freemium Model
 
 **Free Tier:**
+
 - Up to 3 leagues (as creator or member)
 - Up to 20 active members per league (placeholder members do not count toward this limit)
 - Up to 20 game types per league
@@ -539,6 +548,7 @@ The app will launch with all features available but with usage limits clearly co
 - Community support only
 
 **Pro Tier (pricing TBD):**
+
 - Unlimited leagues
 - Unlimited members per league
 - Unlimited game types
@@ -549,11 +559,13 @@ The app will launch with all features available but with usage limits clearly co
 ### 14.3 Limit Overrides
 
 The system will support administrative overrides to usage limits on a per-league or per-user basis. This allows:
+
 - Exemptions for specific communities (e.g., the developer’s workplace) before paid tier launches
 - Promotional upgrades for early adopters
 - Flexible handling of edge cases
 
 Override capabilities:
+
 - Override member limit for a specific league
 - Override league count for a specific user
 - Override game type limit for a specific league
@@ -564,6 +576,7 @@ Overrides are managed by app administrators and are invisible to end users (they
 ### 14.4 Transparency
 
 Usage limits will be clearly displayed in the app:
+
 - League creation screen shows “X of 3 leagues used”
 - Member management shows “X of 20 active members”
 - Game type creation shows “X of 20 game types”
