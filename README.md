@@ -71,3 +71,7 @@ While not strictly enforced, it is recommended to following the [Conventional Co
 ## Usage with AI tools
 
 To start, this codebase has a very simple integration with AI. It assumes you use Claude Code and has Codebase Standards all in [CLAUDE.md](CLAUDE.md). This may evolve as this repo evolves more.
+
+## Migrations
+
+Note that migrations need to be run manually after each schema change. They are not run automatically when the application is started or when a branch is merged into main.
