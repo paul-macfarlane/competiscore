@@ -41,8 +41,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# turso local database
-local.db*
-
 # google credentials
 google-credentials*.json
