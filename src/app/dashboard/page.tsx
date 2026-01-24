@@ -1,8 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getUserLeagueCount } from "@/db/league-members";
 import { auth } from "@/lib/auth";
 import { Swords, Trophy, Users } from "lucide-react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
@@ -33,20 +36,9 @@ export default async function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Leagues
-            </CardTitle>
-            <Trophy className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold md:text-2xl">0</div>
-            <p className="text-xs text-muted-foreground">
-              Join a league to get started
-            </p>
-          </CardContent>
-        </Card>
+        <Suspense fallback={<LeagueCountSkeleton />}>
+          <LeagueCountCard userId={session.user.id} />
+        </Suspense>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -63,5 +55,43 @@ export default async function DashboardPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+async function LeagueCountCard({ userId }: { userId: string }) {
+  const leagueCount = await getUserLeagueCount(userId);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">Active Leagues</CardTitle>
+        <Trophy className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-xl font-bold md:text-2xl">{leagueCount}</div>
+        <p className="text-xs text-muted-foreground">
+          {leagueCount === 0
+            ? "Join a league to get started"
+            : leagueCount === 1
+              ? "league membership"
+              : "league memberships"}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LeagueCountSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">Active Leagues</CardTitle>
+        <Trophy className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-7 w-8" />
+        <Skeleton className="mt-1 h-3 w-32" />
+      </CardContent>
+    </Card>
   );
 }

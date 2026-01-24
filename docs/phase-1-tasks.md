@@ -8,9 +8,9 @@ This document tracks all tasks for Phase 1 of Competiscore development based on 
 | ------------------------------- | -------------- | -------- |
 | 1. Authentication               | ✅ Complete    | 100%     |
 | 2. User Profiles                | ✅ Complete    | 100%     |
-| 3. League Creation & Management | ⏳ Not Started | 0%       |
-| 4. Member Management            | ⏳ Not Started | 0%       |
-| 5. Role-Based Permissions       | ⏳ Not Started | 0%       |
+| 3. League Creation & Management | 🚧 In Progress | 95%      |
+| 4. Member Management            | ✅ Complete    | 100%     |
+| 5. Role-Based Permissions       | ✅ Complete    | 100%     |
 | 6. Moderation System            | ⏳ Not Started | 0%       |
 | 7. Usage Limits                 | ⏳ Not Started | 0%       |
 
@@ -91,64 +91,68 @@ This document tracks all tasks for Phase 1 of Competiscore development based on 
 
 ## 4. Member Management
 
-**Status: ⏳ Not Started**
+**Status: ✅ Complete**
 
 ### Database Schema
 
-- [ ] League member table (userId, leagueId, role, joinedAt)
-- [ ] Placeholder member table (id, leagueId, displayName, username, createdAt)
-- [ ] League invitation table (id, leagueId, inviterId, inviteeEmail/userId, role, placeholderId, status, createdAt, expiresAt)
+- [x] League member table (userId, leagueId, role, joinedAt)
+- [x] Placeholder member table (id, leagueId, displayName, createdAt)
+- [x] League invitation table (id, leagueId, inviterId, inviteeEmail/userId, role, status, token, maxUses, useCount, createdAt, expiresAt)
 
 ### Member Operations
 
-- [ ] View all league members
-- [ ] Invite user to league (by username search)
-- [ ] Generate shareable invite link
-- [ ] Invite link handling for authenticated users
-- [ ] Invite link handling for unauthenticated users with accounts
-- [ ] Invite link handling for new users (sign-up flow)
-- [ ] Accept/decline league invitation
-- [ ] Leave league functionality
-- [ ] Remove member from league
+- [x] View all league members
+- [x] Invite user to league (by username search)
+- [x] Generate shareable invite link
+- [x] Invite link handling for authenticated users
+- [x] Invite link handling for unauthenticated users (redirect to sign in)
+- [x] Accept/decline league invitation
+- [x] Leave league functionality
+- [x] Remove member from league
 
 ### Placeholder Members
 
-- [ ] Create placeholder member
-- [ ] Link placeholder to real user on join
-- [ ] Retire placeholder without linking
-- [ ] Prevent placeholder from being in multiple leagues
-- [ ] Placeholder member list view
+- [x] Create placeholder member
+- [x] Retire placeholder (soft-delete with `retiredAt` for match history preservation)
+- [x] Restore retired placeholder
+- [x] Placeholder member list view (active and retired sections)
+- [ ] Link placeholder to real user on join (deferred to Phase 2 - requires match history)
 
 ### UI/UX
 
-- [ ] Member list page
-- [ ] Member card component
-- [ ] Invite member modal/form
-- [ ] Pending invitations view
-- [ ] Member profile within league context
+- [x] Member list page (`/leagues/[id]/members`)
+- [x] Member card component (in members-list.tsx)
+- [x] Invite member page (`/leagues/[id]/members/invite`)
+- [x] Pending invitations view (shows invitee name for direct invitations)
+- [x] Copy invite link button for link-type invitations
+- [x] User invitations page (`/invitations`)
+- [x] Leave league button on league dashboard (all roles)
+- [x] Dashboard active league count (real-time)
+- [x] Notification bell in header with pending invitation count
+- [x] Notification dropdown with accept/decline inline actions
 
 ---
 
 ## 5. Role-Based Permissions
 
-**Status: ⏳ Not Started**
+**Status: ✅ Complete**
 
 ### Database
 
-- [ ] Role enum (member, manager, executive)
-- [ ] Role stored in league_member table
+- [x] Role enum (member, manager, executive)
+- [x] Role stored in league_member table
 
 ### Permission System
 
-- [ ] Permission checking utility functions
-- [ ] Role-based UI rendering (show/hide based on permissions)
-- [ ] API route protection based on role
+- [x] Permission checking utility functions (`src/lib/permissions.ts`)
+- [x] Role-based UI rendering (show/hide based on permissions)
+- [x] Service layer protection based on role
 
 ### Role Management
 
-- [ ] Change member role (Executive only)
-- [ ] Transfer executive role
-- [ ] Prevent sole executive from leaving without replacement
+- [x] Change member role (Executive only)
+- [x] Prevent sole executive from leaving without replacement
+- [x] Prevent demoting sole executive
 
 ### Permission Matrix Implementation
 

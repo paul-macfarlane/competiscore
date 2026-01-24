@@ -29,6 +29,27 @@
       "when": 1768966471175,
       "tag": "0003_harsh_quicksilver",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1769141024723,
+      "tag": "0004_mysterious_maverick",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1769145588288,
+      "tag": "0005_broad_gargoyle",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1769225246493,
+      "tag": "0006_small_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

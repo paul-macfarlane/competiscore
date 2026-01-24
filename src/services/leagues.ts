@@ -1,4 +1,5 @@
 import { withTransaction } from "@/db";
+import { acceptAllPendingInvitationsForLeague } from "@/db/invitations";
 import {
   LeagueWithRole,
   createLeagueMember,
@@ -292,6 +293,8 @@ export async function joinPublicLeague(
     leagueId,
     role: LeagueMemberRole.MEMBER,
   });
+
+  await acceptAllPendingInvitationsForLeague(leagueId, userId);
 
   return { data: { joined: true } };
 }

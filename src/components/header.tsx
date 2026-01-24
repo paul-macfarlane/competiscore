@@ -1,8 +1,10 @@
 import { DesktopNav } from "@/components/desktop-nav";
 import { Logo } from "@/components/logo";
 import { ModeToggle } from "@/components/mode-toggle";
+import { NotificationBell } from "@/components/notification-bell";
 import { UserMenu } from "@/components/user-menu";
 import { auth } from "@/lib/auth";
+import { getNotificationCount } from "@/services/notifications";
 import { headers } from "next/headers";
 import Link from "next/link";
 
@@ -10,6 +12,10 @@ export async function Header() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
+
+  const notificationCount = session
+    ? await getNotificationCount(session.user.id)
+    : 0;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background">
@@ -20,8 +26,15 @@ export async function Header() {
           </Link>
           {session && <DesktopNav />}
         </div>
-        <div className="flex items-center gap-4">
-          {session ? <UserMenu user={session.user} /> : <ModeToggle />}
+        <div className="flex items-center gap-2">
+          {session ? (
+            <>
+              <NotificationBell initialCount={notificationCount} />
+              <UserMenu user={session.user} />
+            </>
+          ) : (
+            <ModeToggle />
+          )}
         </div>
       </div>
     </header>

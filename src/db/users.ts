@@ -1,7 +1,9 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ilike, isNull, ne, notInArray, or } from "drizzle-orm";
 
 import { DBOrTx, db } from "./index";
 import { User, account, session, user } from "./schema";
+
+export type UserSearchResult = Pick<User, "id" | "name" | "username" | "image">;
 
 export async function getUserById(
   id: string,
@@ -68,5 +70,48 @@ export async function deleteUser(
     .where(eq(user.id, id))
     .returning();
 
+  return result[0];
+}
+
+export async function searchUsersByQuery(
+  query: string,
+  excludeUserIds: string[] = [],
+  limit: number = 20,
+  dbOrTx: DBOrTx = db,
+): Promise<UserSearchResult[]> {
+  const searchPattern = `%${query}%`;
+
+  const conditions = [
+    or(ilike(user.name, searchPattern), ilike(user.username, searchPattern)),
+    isNull(user.deletedAt),
+  ];
+
+  if (excludeUserIds.length > 0) {
+    conditions.push(notInArray(user.id, excludeUserIds));
+  }
+
+  const results = await dbOrTx
+    .select({
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      image: user.image,
+    })
+    .from(user)
+    .where(and(...conditions))
+    .limit(limit);
+
+  return results;
+}
+
+export async function getUserByUsername(
+  username: string,
+  dbOrTx: DBOrTx = db,
+): Promise<User | undefined> {
+  const result = await dbOrTx
+    .select()
+    .from(user)
+    .where(and(eq(user.username, username), isNull(user.deletedAt)))
+    .limit(1);
   return result[0];
 }

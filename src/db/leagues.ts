@@ -1,10 +1,14 @@
 import { LeagueVisibility } from "@/lib/constants";
-import { and, count, eq, getTableColumns, ilike, or } from "drizzle-orm";
+import { and, count, eq, ilike, or } from "drizzle-orm";
 
 import { DBOrTx, db } from "./index";
-import { League, NewLeague, league, leagueMember } from "./schema";
-
-const leagueColumns = getTableColumns(league);
+import {
+  League,
+  NewLeague,
+  league,
+  leagueColumns,
+  leagueMember,
+} from "./schema";
 
 export async function createLeague(
   data: Omit<NewLeague, "id" | "createdAt" | "updatedAt">,

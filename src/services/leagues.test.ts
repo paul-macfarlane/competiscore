@@ -41,6 +41,10 @@ vi.mock("@/db/league-members", () => ({
   deleteLeagueMember: vi.fn(),
 }));
 
+vi.mock("@/db/invitations", () => ({
+  acceptAllPendingInvitationsForLeague: vi.fn(),
+}));
+
 vi.mock("@/db", () => ({
   withTransaction: vi.fn((callback) =>
     callback({

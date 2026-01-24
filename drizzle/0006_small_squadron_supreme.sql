@@ -1,0 +1,1 @@
+ALTER TABLE "placeholder_member" ADD COLUMN "retired_at" timestamp;

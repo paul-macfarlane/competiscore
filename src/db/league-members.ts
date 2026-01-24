@@ -1,15 +1,17 @@
-import { and, count, eq, getTableColumns } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 
 import { DBOrTx, db } from "./index";
 import {
   League,
   LeagueMember,
   NewLeagueMember,
+  User,
   league,
+  leagueColumns,
   leagueMember,
+  leagueMemberColumns,
+  user,
 } from "./schema";
-
-const leagueColumns = getTableColumns(league);
 
 export async function createLeagueMember(
   data: Omit<NewLeagueMember, "id" | "joinedAt">,
@@ -180,4 +182,55 @@ export async function getArchivedLeaguesByUserId(
     ...m,
     memberCount: countMap.get(m.id) ?? 0,
   }));
+}
+
+export type LeagueMemberWithUser = LeagueMember & {
+  user: Pick<User, "id" | "name" | "username" | "image">;
+};
+
+export async function getLeagueMembers(
+  leagueId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<LeagueMemberWithUser[]> {
+  const results = await dbOrTx
+    .select({
+      ...leagueMemberColumns,
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        image: user.image,
+      },
+    })
+    .from(leagueMember)
+    .innerJoin(user, eq(leagueMember.userId, user.id))
+    .where(eq(leagueMember.leagueId, leagueId))
+    .orderBy(leagueMember.joinedAt);
+
+  return results;
+}
+
+export async function getLeagueMemberWithUser(
+  userId: string,
+  leagueId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<LeagueMemberWithUser | undefined> {
+  const results = await dbOrTx
+    .select({
+      ...leagueMemberColumns,
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        image: user.image,
+      },
+    })
+    .from(leagueMember)
+    .innerJoin(user, eq(leagueMember.userId, user.id))
+    .where(
+      and(eq(leagueMember.userId, userId), eq(leagueMember.leagueId, leagueId)),
+    )
+    .limit(1);
+
+  return results[0];
 }

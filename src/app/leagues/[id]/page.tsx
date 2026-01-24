@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/auth";
-import { getLeagueWithRole } from "@/services/leagues";
+import { LeagueMemberRole } from "@/lib/constants";
+import { getExecutiveCount, getLeagueWithRole } from "@/services/leagues";
 import { idParamSchema } from "@/validators/shared";
 import { Settings, Users } from "lucide-react";
 import { headers } from "next/headers";
@@ -11,6 +12,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
+
+import { LeaveLeagueButton } from "./leave-league-button";
 
 interface LeagueDashboardPageProps {
   params: Promise<{ id: string }>;
@@ -56,7 +59,9 @@ async function LeagueDashboardContent({
   }
 
   const league = result.data;
-  const isExecutive = league.role === "executive";
+  const isExecutive = league.role === LeagueMemberRole.EXECUTIVE;
+  const executiveCount = await getExecutiveCount(leagueId);
+  const isSoleExecutive = isExecutive && executiveCount <= 1;
 
   return (
     <>
@@ -90,29 +95,37 @@ async function LeagueDashboardContent({
             </p>
           </div>
         </div>
-        {isExecutive && (
-          <Button variant="outline" size="sm" asChild className="shrink-0">
-            <Link href={`/leagues/${leagueId}/settings`}>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </Link>
-          </Button>
-        )}
+        <div className="flex gap-2 shrink-0">
+          {isExecutive && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/leagues/${leagueId}/settings`}>
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </Link>
+            </Button>
+          )}
+          <LeaveLeagueButton
+            leagueId={leagueId}
+            isSoleExecutive={isSoleExecutive}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Members</CardTitle>
-            <Users className="text-muted-foreground h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{league.memberCount}</div>
-            <p className="text-muted-foreground text-xs">
-              {league.memberCount === 1 ? "member" : "active members"}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href={`/leagues/${leagueId}/members`} className="block">
+          <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Members</CardTitle>
+              <Users className="text-muted-foreground h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{league.memberCount}</div>
+              <p className="text-muted-foreground text-xs">
+                {league.memberCount === 1 ? "member" : "active members"}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

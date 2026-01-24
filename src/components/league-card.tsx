@@ -5,6 +5,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { LeagueMemberRole } from "@/lib/constants";
+import { ROLE_BADGE_VARIANTS, ROLE_LABELS } from "@/lib/roles";
 import { Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,22 +16,10 @@ interface LeagueCardProps {
   name: string;
   description: string;
   memberCount: number;
-  role?: "member" | "manager" | "executive";
+  role?: LeagueMemberRole;
   logo?: string | null;
   showRole?: boolean;
 }
-
-const roleLabels = {
-  member: "Member",
-  manager: "Manager",
-  executive: "Executive",
-};
-
-const roleVariants = {
-  member: "secondary" as const,
-  manager: "default" as const,
-  executive: "default" as const,
-};
 
 export function LeagueCard({
   id,
@@ -61,8 +51,11 @@ export function LeagueCard({
                   {name}
                 </CardTitle>
                 {showRole && role && (
-                  <Badge variant={roleVariants[role]} className="shrink-0">
-                    {roleLabels[role]}
+                  <Badge
+                    variant={ROLE_BADGE_VARIANTS[role]}
+                    className="shrink-0"
+                  >
+                    {ROLE_LABELS[role]}
                   </Badge>
                 )}
               </div>

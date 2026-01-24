@@ -1,0 +1,3 @@
+ALTER TABLE "placeholder_member" ADD COLUMN "linked_user_id" text;--> statement-breakpoint
+ALTER TABLE "placeholder_member" ADD CONSTRAINT "placeholder_member_linked_user_id_user_id_fk" FOREIGN KEY ("linked_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "placeholder_member_linked_user_idx" ON "placeholder_member" USING btree ("linked_user_id");

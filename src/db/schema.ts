@@ -1,7 +1,13 @@
-import { InferInsertModel, InferSelectModel, relations } from "drizzle-orm";
+import {
+  InferInsertModel,
+  InferSelectModel,
+  getTableColumns,
+  relations,
+} from "drizzle-orm";
 import {
   boolean,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -194,12 +200,16 @@ export const leagueInvitation = pgTable(
     inviteeEmail: text("invitee_email"),
     role: leagueMemberRole("role").notNull().default("member"),
     status: invitationStatus("status").notNull().default("pending"),
+    token: text("token").unique(),
+    maxUses: integer("max_uses"),
+    useCount: integer("use_count").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     expiresAt: timestamp("expires_at"),
   },
   (table) => [
     index("league_invitation_league_idx").on(table.leagueId),
     index("league_invitation_invitee_idx").on(table.inviteeUserId),
+    index("league_invitation_token_idx").on(table.token),
   ],
 );
 
@@ -216,9 +226,16 @@ export const placeholderMember = pgTable(
       .notNull()
       .references(() => league.id, { onDelete: "cascade" }),
     displayName: text("display_name").notNull(),
+    linkedUserId: text("linked_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    retiredAt: timestamp("retired_at"),
   },
-  (table) => [index("placeholder_member_league_idx").on(table.leagueId)],
+  (table) => [
+    index("placeholder_member_league_idx").on(table.leagueId),
+    index("placeholder_member_linked_user_idx").on(table.linkedUserId),
+  ],
 );
 
 export type PlaceholderMember = InferSelectModel<typeof placeholderMember>;
@@ -262,5 +279,15 @@ export const placeholderMemberRelations = relations(
       fields: [placeholderMember.leagueId],
       references: [league.id],
     }),
+    linkedUser: one(user, {
+      fields: [placeholderMember.linkedUserId],
+      references: [user.id],
+    }),
   }),
 );
+
+export const userColumns = getTableColumns(user);
+export const leagueColumns = getTableColumns(league);
+export const leagueMemberColumns = getTableColumns(leagueMember);
+export const leagueInvitationColumns = getTableColumns(leagueInvitation);
+export const placeholderMemberColumns = getTableColumns(placeholderMember);
