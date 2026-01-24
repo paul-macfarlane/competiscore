@@ -11,10 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  MODERATION_ACTION_LABELS,
-  ModerationActionType,
-} from "@/lib/constants";
+import { ModerationActionType } from "@/lib/constants";
 import {
   MAX_SUSPENSION_DAYS,
   MODERATION_REASON_MAX_LENGTH,
@@ -35,6 +32,16 @@ interface ModerationActionFormProps {
   reportId: string;
   leagueId: string;
 }
+
+const REPORT_ACTION_LABELS: Record<
+  Exclude<ModerationActionType, "suspension_lifted">,
+  string
+> = {
+  [ModerationActionType.DISMISSED]: "Report Dismissed",
+  [ModerationActionType.WARNED]: "Warning Issued",
+  [ModerationActionType.SUSPENDED]: "Member Suspended",
+  [ModerationActionType.REMOVED]: "Member Removed",
+};
 
 export function ModerationActionForm({
   reportId,
@@ -90,13 +97,15 @@ export function ModerationActionForm({
         <Label htmlFor="action">Action</Label>
         <Select
           value={action}
-          onValueChange={(v) => setValue("action", v as ModerationActionType)}
+          onValueChange={(v) =>
+            setValue("action", v as ModerationActionFormValues["action"])
+          }
         >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(MODERATION_ACTION_LABELS).map(([value, label]) => (
+            {Object.entries(REPORT_ACTION_LABELS).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>
