@@ -25,6 +25,12 @@ export const InvitationStatus = {
 export type InvitationStatus =
   (typeof InvitationStatus)[keyof typeof InvitationStatus];
 
+export const ICON_PATHS = {
+  AVATARS: "/avatars",
+  LEAGUE_LOGOS: "/league-logos",
+  GAME_TYPE_ICONS: "/game-type-icons",
+} as const;
+
 export const LEAGUE_LOGOS = [
   "ping-pong",
   "pool",
@@ -91,3 +97,63 @@ export const MODERATION_ACTION_LABELS: Record<ModerationActionType, string> = {
   [ModerationActionType.REMOVED]: "Member Removed",
   [ModerationActionType.SUSPENSION_LIFTED]: "Suspension Lifted",
 };
+
+export const GameCategory = {
+  HEAD_TO_HEAD: "head_to_head",
+  FREE_FOR_ALL: "free_for_all",
+  HIGH_SCORE: "high_score",
+} as const;
+
+export type GameCategory = (typeof GameCategory)[keyof typeof GameCategory];
+
+export const GAME_CATEGORY_LABELS: Record<GameCategory, string> = {
+  [GameCategory.HEAD_TO_HEAD]: "Head-to-Head",
+  [GameCategory.FREE_FOR_ALL]: "Free-for-All",
+  [GameCategory.HIGH_SCORE]: "High Score Challenge",
+};
+
+export const GAME_TYPE_ICONS = [
+  "ping-pong",
+  "pool",
+  "pacman",
+  "poker",
+  "chess",
+  "foosball",
+  "cards",
+  "dice",
+  "trophy",
+  "crown",
+  "target",
+  "controller",
+  "joystick",
+  "rocket",
+  "shield",
+  "sword",
+  "ghost",
+  "gem",
+  "robot",
+  "medal",
+] as const;
+
+export const ScoringType = {
+  WIN_LOSS: "win_loss",
+  SCORE_BASED: "score_based",
+  RANKED_FINISH: "ranked_finish",
+} as const;
+
+export type ScoringType = (typeof ScoringType)[keyof typeof ScoringType];
+
+export const ScoreOrder = {
+  HIGHEST_WINS: "highest_wins",
+  LOWEST_WINS: "lowest_wins",
+} as const;
+
+export type ScoreOrder = (typeof ScoreOrder)[keyof typeof ScoreOrder];
+
+export const ParticipantType = {
+  INDIVIDUAL: "individual",
+  TEAM: "team",
+} as const;
+
+export type ParticipantType =
+  (typeof ParticipantType)[keyof typeof ParticipantType];

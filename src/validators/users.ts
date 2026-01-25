@@ -1,3 +1,4 @@
+import { ICON_PATHS } from "@/lib/shared/constants";
 import {
   BIO_MAX_LENGTH,
   NAME_MAX_LENGTH,
@@ -7,26 +8,26 @@ import {
 import { z } from "zod";
 
 export const AVATARS = [
-  { name: "8-ball", src: "/avatars/8-ball.svg" },
-  { name: "Paddle", src: "/avatars/paddle.svg" },
-  { name: "Controller", src: "/avatars/controller.svg" },
-  { name: "Dice", src: "/avatars/dice.svg" },
-  { name: "Cards", src: "/avatars/cards.svg" },
-  { name: "Chess Knight", src: "/avatars/chess-knight.svg" },
-  { name: "Target", src: "/avatars/target.svg" },
-  { name: "Trophy", src: "/avatars/trophy.svg" },
-  { name: "Joystick", src: "/avatars/joystick.svg" },
-  { name: "Ghost", src: "/avatars/ghost.svg" },
-  { name: "Pacman", src: "/avatars/pacman.svg" },
-  { name: "Sword", src: "/avatars/sword.svg" },
-  { name: "Shield", src: "/avatars/shield.svg" },
-  { name: "Potion", src: "/avatars/potion.svg" },
-  { name: "Crown", src: "/avatars/crown.svg" },
-  { name: "Flag", src: "/avatars/flag.svg" },
-  { name: "Rocket", src: "/avatars/rocket.svg" },
-  { name: "Skull", src: "/avatars/skull.svg" },
-  { name: "Gem", src: "/avatars/gem.svg" },
-  { name: "Robot", src: "/avatars/robot.svg" },
+  { name: "8-ball", src: `${ICON_PATHS.AVATARS}/8-ball.svg` },
+  { name: "Paddle", src: `${ICON_PATHS.AVATARS}/paddle.svg` },
+  { name: "Controller", src: `${ICON_PATHS.AVATARS}/controller.svg` },
+  { name: "Dice", src: `${ICON_PATHS.AVATARS}/dice.svg` },
+  { name: "Cards", src: `${ICON_PATHS.AVATARS}/cards.svg` },
+  { name: "Chess Knight", src: `${ICON_PATHS.AVATARS}/chess-knight.svg` },
+  { name: "Target", src: `${ICON_PATHS.AVATARS}/target.svg` },
+  { name: "Trophy", src: `${ICON_PATHS.AVATARS}/trophy.svg` },
+  { name: "Joystick", src: `${ICON_PATHS.AVATARS}/joystick.svg` },
+  { name: "Ghost", src: `${ICON_PATHS.AVATARS}/ghost.svg` },
+  { name: "Pacman", src: `${ICON_PATHS.AVATARS}/pacman.svg` },
+  { name: "Sword", src: `${ICON_PATHS.AVATARS}/sword.svg` },
+  { name: "Shield", src: `${ICON_PATHS.AVATARS}/shield.svg` },
+  { name: "Potion", src: `${ICON_PATHS.AVATARS}/potion.svg` },
+  { name: "Crown", src: `${ICON_PATHS.AVATARS}/crown.svg` },
+  { name: "Flag", src: `${ICON_PATHS.AVATARS}/flag.svg` },
+  { name: "Rocket", src: `${ICON_PATHS.AVATARS}/rocket.svg` },
+  { name: "Skull", src: `${ICON_PATHS.AVATARS}/skull.svg` },
+  { name: "Gem", src: `${ICON_PATHS.AVATARS}/gem.svg` },
+  { name: "Robot", src: `${ICON_PATHS.AVATARS}/robot.svg` },
 ] as const;
 
 export type Avatar = (typeof AVATARS)[number];

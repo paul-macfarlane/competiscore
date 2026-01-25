@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UsageIndicator } from "@/components/usage-indicator";
 import { auth } from "@/lib/server/auth";
-import { getLeagueMemberLimitInfo } from "@/lib/server/limits";
+import {
+  getLeagueGameTypeLimitInfo,
+  getLeagueMemberLimitInfo,
+} from "@/lib/server/limits";
 import { LeagueMemberRole } from "@/lib/shared/constants";
 import { LeagueAction, canPerformAction } from "@/lib/shared/permissions";
 import { getExecutiveCount, getLeagueWithRole } from "@/services/leagues";
@@ -15,14 +18,7 @@ import {
 } from "@/services/moderation";
 import { idParamSchema } from "@/validators/shared";
 import { format, formatDistanceToNow } from "date-fns";
-import {
-  AlertTriangle,
-  FileText,
-  Flag,
-  Settings,
-  Shield,
-  Users,
-} from "lucide-react";
+import { Flag, Gamepad2, Settings, Shield, Users } from "lucide-react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Image from "next/image";
@@ -181,7 +177,7 @@ async function LeagueDashboardContent({
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-bold md:text-2xl">
                 {league.name}
               </h1>
@@ -191,6 +187,9 @@ async function LeagueDashboardContent({
                 }
               >
                 {league.visibility === "public" ? "Public" : "Private"}
+              </Badge>
+              <Badge variant="outline" className="capitalize">
+                {league.role}
               </Badge>
             </div>
             <p className="text-muted-foreground mt-1 text-sm md:text-base">
@@ -215,8 +214,12 @@ async function LeagueDashboardContent({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Suspense fallback={<Skeleton className="h-32" />}>
+          <GameTypesCard leagueId={leagueId} />
+        </Suspense>
+
         <Link href={`/leagues/${leagueId}/members`} className="block h-full">
-          <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
+          <Card className="hover:bg-muted hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Members</CardTitle>
               <Users className="text-muted-foreground h-4 w-4" />
@@ -233,90 +236,38 @@ async function LeagueDashboardContent({
           </Card>
         </Link>
 
-        <Card className="h-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Your Role</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold capitalize">{league.role}</div>
-            <p className="text-muted-foreground text-xs">
-              {league.role === "executive"
-                ? "Full access"
-                : league.role === "manager"
-                  ? "Can manage games"
-                  : "Can play games"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="sm:col-span-2 lg:col-span-1 h-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Games Played</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-muted-foreground text-2xl font-bold">—</div>
-            <p className="text-muted-foreground text-xs">Coming soon</p>
-          </CardContent>
-        </Card>
-
-        {canViewReports && (
-          <Link
-            href={`/leagues/${leagueId}/moderation`}
-            className="block h-full"
-          >
-            <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Moderation
-                </CardTitle>
-                <Flag className="text-muted-foreground h-4 w-4" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold flex items-center gap-2">
-                  {pendingReportCount}
-                  {pendingReportCount > 0 && (
+        <Link href={`/leagues/${leagueId}/moderation`} className="block h-full">
+          <Card className="hover:bg-muted hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring transition-colors cursor-pointer h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Moderation</CardTitle>
+              <Flag className="text-muted-foreground h-4 w-4" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {canViewReports && pendingReportCount > 0 ? (
+                <>
+                  <div className="text-2xl font-bold flex items-center gap-2">
+                    {pendingReportCount}
                     <Badge variant="destructive" className="text-xs">
                       Pending
                     </Badge>
-                  )}
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  {pendingReportCount === 1 ? "report" : "reports"} to review
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        )}
-
-        <Link href={`/leagues/${leagueId}/my-reports`} className="block h-full">
-          <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">My Reports</CardTitle>
-              <FileText className="text-muted-foreground h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{ownReportCount}</div>
-              <p className="text-muted-foreground text-xs">
-                {ownReportCount === 1 ? "report" : "reports"} submitted
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link
-          href={`/leagues/${leagueId}/my-warnings`}
-          className="block h-full"
-        >
-          <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">My Warnings</CardTitle>
-              <AlertTriangle className="text-muted-foreground h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{ownWarningCount}</div>
-              <p className="text-muted-foreground text-xs">
-                {ownWarningCount === 1 ? "warning" : "warnings"} received
-              </p>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    {pendingReportCount === 1 ? "report" : "reports"} to review
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">
+                    {ownReportCount + ownWarningCount}
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    {ownReportCount}{" "}
+                    {ownReportCount === 1 ? "report" : "reports"},{" "}
+                    {ownWarningCount}{" "}
+                    {ownWarningCount === 1 ? "warning" : "warnings"}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </Link>
@@ -336,6 +287,30 @@ async function LeagueDashboardContent({
   );
 }
 
+async function GameTypesCard({ leagueId }: { leagueId: string }) {
+  const gameTypeLimitInfo = await getLeagueGameTypeLimitInfo(leagueId);
+
+  return (
+    <Link href={`/leagues/${leagueId}/game-types`} className="block h-full">
+      <Card className="hover:bg-muted hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring transition-colors cursor-pointer h-full">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Game Types</CardTitle>
+          <Gamepad2 className="text-muted-foreground h-4 w-4" />
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="text-2xl font-bold">{gameTypeLimitInfo.current}</div>
+          <UsageIndicator
+            current={gameTypeLimitInfo.current}
+            max={gameTypeLimitInfo.max}
+            label="game types"
+            showProgressBar={gameTypeLimitInfo.max !== null}
+          />
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
 function LeagueDashboardSkeleton() {
   return (
     <>
@@ -348,7 +323,7 @@ function LeagueDashboardSkeleton() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+        {[1, 2, 3].map((i) => (
           <Card key={i} className="h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <Skeleton className="h-4 w-20" />

@@ -6,7 +6,7 @@ This document tracks all tasks for Phase 2 of Competiscore development, focusing
 
 | Category                    | Status         | Progress |
 | --------------------------- | -------------- | -------- |
-| 1. Game Types               | ⏳ Not Started | 0%       |
+| 1. Game Types               | ✅ Complete    | 100%     |
 | 2. Team Management          | ⏳ Not Started | 0%       |
 | 3. Match Recording          | ⏳ Not Started | 0%       |
 | 4. ELO & Rankings           | ⏳ Not Started | 0%       |
@@ -17,33 +17,35 @@ This document tracks all tasks for Phase 2 of Competiscore development, focusing
 
 ## 1. Game Types
 
-**Status: ⏳ Not Started**
+**Status: ✅ Complete**
 
 ### Database Schema
 
-- [ ] Game type table (id, leagueId, name, description, logo, category, config, createdAt)
-- [ ] Game category enum (head_to_head, free_for_all, high_score)
-- [ ] Game config JSON schema (scoring type, win condition, etc.)
+- [x] Game type table (id, leagueId, name, description, logo, category, config, createdAt)
+- [x] Game category enum (head_to_head, free_for_all, high_score)
+- [x] Game config JSON schema (scoring type, win condition, rules as markdown, etc.)
 
 ### Game Type CRUD
 
-- [ ] Create game type form
-- [ ] Validations (name uniqueness within league, limit check)
-- [ ] Game type settings page
-- [ ] Archive/Delete game type
-- [ ] Usage limit tracking (max 20 game types per league)
+- [x] Create game type form
+- [x] Validations (name uniqueness within league, limit check)
+- [x] Game type settings page
+- [x] Archive/Delete game type
+- [x] Usage limit tracking (max 20 game types per league)
+- [x] RBAC: Only managers and executives can create/edit game types
 
 ### Templates
 
-- [ ] Define static templates (Ping Pong, Pool, Mario Kart, etc.)
-- [ ] Template selection UI during creation
-- [ ] Pre-fill configuration from template
+- [x] Define static templates (Ping Pong, Pool, Mario Kart, etc.)
+- [x] Template selection UI during creation
+- [x] Pre-fill configuration from template
 
 ### UI/UX
 
-- [ ] Game types list view
-- [ ] Game type detail page
-- [ ] Empty state with "Create Game Type" CTA
+- [x] Game types list view
+- [x] Game type detail page
+- [x] Empty state messaging
+- [x] Game type icons (20 colorful SVG icons)
 
 ---
 

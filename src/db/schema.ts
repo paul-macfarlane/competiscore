@@ -1,4 +1,14 @@
 import {
+  GameCategory,
+  InvitationStatus,
+  LeagueMemberRole,
+  LeagueVisibility,
+  ModerationActionType,
+  ReportReason,
+  ReportStatus,
+} from "@/lib/shared/constants";
+import { LimitType } from "@/services/constants";
+import {
   InferInsertModel,
   InferSelectModel,
   getTableColumns,
@@ -120,8 +130,8 @@ export const accountRelations = relations(account, ({ one }) => ({
 }));
 
 export const leagueVisibility = pgEnum("league_visibility", [
-  "public",
-  "private",
+  LeagueVisibility.PUBLIC,
+  LeagueVisibility.PRIVATE,
 ]);
 
 export const league = pgTable(
@@ -148,9 +158,9 @@ export type League = InferSelectModel<typeof league>;
 export type NewLeague = InferInsertModel<typeof league>;
 
 export const leagueMemberRole = pgEnum("league_member_role", [
-  "member",
-  "manager",
-  "executive",
+  LeagueMemberRole.MEMBER,
+  LeagueMemberRole.MANAGER,
+  LeagueMemberRole.EXECUTIVE,
 ]);
 
 export const leagueMember = pgTable(
@@ -180,10 +190,10 @@ export type LeagueMember = InferSelectModel<typeof leagueMember>;
 export type NewLeagueMember = InferInsertModel<typeof leagueMember>;
 
 export const invitationStatus = pgEnum("invitation_status", [
-  "pending",
-  "accepted",
-  "declined",
-  "expired",
+  InvitationStatus.PENDING,
+  InvitationStatus.ACCEPTED,
+  InvitationStatus.DECLINED,
+  InvitationStatus.EXPIRED,
 ]);
 
 export const leagueInvitation = pgTable(
@@ -247,6 +257,7 @@ export const leagueRelations = relations(league, ({ many }) => ({
   members: many(leagueMember),
   invitations: many(leagueInvitation),
   placeholderMembers: many(placeholderMember),
+  gameTypes: many(gameType),
 }));
 
 export const leagueMemberRelations = relations(leagueMember, ({ one }) => ({
@@ -295,21 +306,24 @@ export const leagueInvitationColumns = getTableColumns(leagueInvitation);
 export const placeholderMemberColumns = getTableColumns(placeholderMember);
 
 export const reportReason = pgEnum("report_reason", [
-  "unsportsmanlike",
-  "false_reporting",
-  "harassment",
-  "spam",
-  "other",
+  ReportReason.UNSPORTSMANLIKE,
+  ReportReason.FALSE_REPORTING,
+  ReportReason.HARASSMENT,
+  ReportReason.SPAM,
+  ReportReason.OTHER,
 ]);
 
-export const reportStatus = pgEnum("report_status", ["pending", "resolved"]);
+export const reportStatus = pgEnum("report_status", [
+  ReportStatus.PENDING,
+  ReportStatus.RESOLVED,
+]);
 
 export const moderationActionType = pgEnum("moderation_action_type", [
-  "dismissed",
-  "warned",
-  "suspended",
-  "removed",
-  "suspension_lifted",
+  ModerationActionType.DISMISSED,
+  ModerationActionType.WARNED,
+  ModerationActionType.SUSPENDED,
+  ModerationActionType.REMOVED,
+  ModerationActionType.SUSPENSION_LIFTED,
 ]);
 
 export const report = pgTable(
@@ -424,9 +438,9 @@ export const reportColumns = getTableColumns(report);
 export const moderationActionColumns = getTableColumns(moderationAction);
 
 export const limitType = pgEnum("limit_type", [
-  "max_leagues_per_user",
-  "max_members_per_league",
-  "max_game_types_per_league",
+  LimitType.MAX_LEAGUES_PER_USER,
+  LimitType.MAX_MEMBERS_PER_LEAGUE,
+  LimitType.MAX_GAME_TYPES_PER_LEAGUE,
 ]);
 
 export const limitOverride = pgTable(
@@ -474,3 +488,48 @@ export const limitOverrideRelations = relations(limitOverride, ({ one }) => ({
 }));
 
 export const limitOverrideColumns = getTableColumns(limitOverride);
+
+export const gameCategory = pgEnum("game_category", [
+  GameCategory.HEAD_TO_HEAD,
+  GameCategory.FREE_FOR_ALL,
+  GameCategory.HIGH_SCORE,
+]);
+
+export const gameType = pgTable(
+  "game_type",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    leagueId: text("league_id")
+      .notNull()
+      .references(() => league.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    logo: text("logo"),
+    category: gameCategory("category").notNull(),
+    config: text("config").notNull(),
+    isArchived: boolean("is_archived").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("game_type_league_idx").on(table.leagueId),
+    index("game_type_name_league_idx").on(table.leagueId, table.name),
+  ],
+);
+
+export type GameType = InferSelectModel<typeof gameType>;
+export type NewGameType = InferInsertModel<typeof gameType>;
+
+export const gameTypeRelations = relations(gameType, ({ one }) => ({
+  league: one(league, {
+    fields: [gameType.leagueId],
+    references: [league.id],
+  }),
+}));
+
+export const gameTypeColumns = getTableColumns(gameType);

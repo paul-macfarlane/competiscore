@@ -95,24 +95,37 @@ export function MembersList({
         return (
           <div
             key={member.id}
-            className="flex items-center gap-3 rounded-lg border p-3"
+            className="flex items-start gap-3 rounded-lg border p-3 sm:items-center"
           >
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-10 w-10 shrink-0">
               <AvatarImage src={member.user.image ?? undefined} />
               <AvatarFallback>{getInitials(member.user.name)}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="truncate font-medium">{member.user.name}</span>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-medium wrap-break-word">
+                  {member.user.name}
+                </span>
                 {isCurrentUser && (
-                  <span className="text-muted-foreground text-xs">(you)</span>
+                  <span className="text-muted-foreground text-xs shrink-0">
+                    (you)
+                  </span>
                 )}
+                <Badge
+                  variant={ROLE_BADGE_VARIANTS[member.role]}
+                  className="shrink-0 sm:hidden"
+                >
+                  {ROLE_LABELS[member.role]}
+                </Badge>
               </div>
-              <div className="text-muted-foreground text-sm">
+              <div className="text-muted-foreground text-sm truncate">
                 @{member.user.username}
               </div>
             </div>
-            <Badge variant={ROLE_BADGE_VARIANTS[member.role]}>
+            <Badge
+              variant={ROLE_BADGE_VARIANTS[member.role]}
+              className="shrink-0 hidden sm:inline-flex"
+            >
               {ROLE_LABELS[member.role]}
             </Badge>
             {((canManageRoles || canRemove) && canModify) ||

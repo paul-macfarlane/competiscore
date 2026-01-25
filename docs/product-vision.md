@@ -94,7 +94,7 @@ Two competitors (individuals or teams) face off. One winner, one loser, or a dra
 - Score description: Points, games, sets, or custom label
 - Draws allowed: Yes/No
 - Min/Max players per side (for team games)
-- Rules link: Optional URL to rules document
+- Rules: Optional markdown-formatted rules text
 
 **ELO Calculation:** Yes, individual and team ELO tracked separately.
 
@@ -109,7 +109,7 @@ Three or more competitors (individuals or teams) in a single match. Results in a
 - Scoring type: Ranked finish only, or Score-based ranking
 - Score order: Highest wins or Lowest wins
 - Min/Max players: Configurable range
-- Rules link: Optional URL
+- Rules: Optional markdown-formatted rules text
 
 **ELO Calculation:** Yes, using multiplayer ELO algorithms.
 
@@ -124,7 +124,7 @@ Asynchronous competition where players submit scores over time against an eterna
 - Score order: Highest wins or Lowest wins
 - Score description: Points, time, distance, or custom label
 - Individual or Team: Who can submit scores
-- Rules link: Optional URL
+- Rules: Optional markdown-formatted rules text
 
 **ELO Calculation:** No (leaderboard ranking only).
 

@@ -1,4 +1,8 @@
-import { LEAGUE_LOGOS, LeagueVisibility } from "@/lib/shared/constants";
+import {
+  ICON_PATHS,
+  LEAGUE_LOGOS,
+  LeagueVisibility,
+} from "@/lib/shared/constants";
 import {
   LEAGUE_DESCRIPTION_MAX_LENGTH,
   LEAGUE_NAME_MAX_LENGTH,
@@ -27,7 +31,7 @@ export const leagueVisibilitySchema = z.enum([
 ]);
 
 const VALID_LOGO_PATHS = LEAGUE_LOGOS.map(
-  (logo) => `/league-logos/${logo}.svg`,
+  (logo) => `${ICON_PATHS.LEAGUE_LOGOS}/${logo}.svg`,
 );
 
 export const leagueLogoSchema = z

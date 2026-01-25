@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect x="10" y="15" width="50" height="70" rx="5" fill="#fff" stroke="#333" stroke-width="2" transform="rotate(-10 35 50)"/>
+  <rect x="40" y="15" width="50" height="70" rx="5" fill="#fff" stroke="#333" stroke-width="2" transform="rotate(10 65 50)"/>
+  <path d="M30 40 L35 55 L25 55 Z" fill="#e74c3c"/>
+  <path d="M65 35 C60 25 50 25 50 35 C50 25 40 25 35 35 C35 50 50 60 50 60 C50 60 65 50 65 35" fill="#e74c3c" transform="translate(20, 5)"/>
+</svg>
