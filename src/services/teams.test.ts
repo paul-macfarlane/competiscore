@@ -262,32 +262,24 @@ describe("updateTeam", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("should update a team as league manager (fallback)", async () => {
-    const updatedTeam = { ...mockTeam, name: "Updated Champions" };
-    vi.mocked(dbTeams.getTeamById).mockResolvedValue({
-      ...mockTeam,
-      createdById: "other-user",
-    });
+  it("should fail if user is not a team manager (even if league manager)", async () => {
+    vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
     vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(
       mockManagerMember,
     );
-    // User is not a team member or just a regular member
     vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue(undefined);
-    vi.mocked(dbTeams.checkTeamNameExists).mockResolvedValue(false);
-    vi.mocked(dbTeams.updateTeam).mockResolvedValue(updatedTeam);
 
     const result = await updateTeam("user-123", "team-123", {
       name: "Updated Champions",
     });
 
-    expect(result.data).toEqual(updatedTeam);
-    expect(result.error).toBeUndefined();
+    expect(result.error).toBe("You do not have permission to edit this team");
   });
 
-  it("should fail if user is not team manager and not league manager", async () => {
+  it("should fail if user is a regular team member (not manager)", async () => {
     vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
     vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
-    // User is a regular team member, not a manager
+
     vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue({
       ...mockTeamMember,
       userId: "user-123",
@@ -350,13 +342,27 @@ describe("archiveTeam", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("should fail if user is not team manager and not league manager", async () => {
+  it("should fail if user is a regular team member (not manager)", async () => {
     vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
     vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
     vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue({
       ...mockTeamMember,
       userId: "user-123",
     });
+
+    const result = await archiveTeam("user-123", "team-123");
+
+    expect(result.error).toBe(
+      "You do not have permission to archive this team",
+    );
+  });
+
+  it("should fail if user is not a team manager (even if league manager)", async () => {
+    vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
+    vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(
+      mockManagerMember,
+    );
+    vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue(undefined);
 
     const result = await archiveTeam("user-123", "team-123");
 
@@ -395,7 +401,7 @@ describe("unarchiveTeam", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("should fail if user is not team manager and not league manager", async () => {
+  it("should fail if user is a regular team member (not manager)", async () => {
     vi.mocked(dbTeams.getTeamById).mockResolvedValue({
       ...mockTeam,
       isArchived: true,
@@ -405,6 +411,23 @@ describe("unarchiveTeam", () => {
       ...mockTeamMember,
       userId: "user-123",
     });
+
+    const result = await unarchiveTeam("user-123", "team-123");
+
+    expect(result.error).toBe(
+      "You do not have permission to unarchive this team",
+    );
+  });
+
+  it("should fail if user is not a team manager (even if league manager)", async () => {
+    vi.mocked(dbTeams.getTeamById).mockResolvedValue({
+      ...mockTeam,
+      isArchived: true,
+    });
+    vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(
+      mockManagerMember,
+    );
+    vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue(undefined);
 
     const result = await unarchiveTeam("user-123", "team-123");
 
@@ -432,13 +455,25 @@ describe("deleteTeam", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("should fail if user is not team manager and not league manager", async () => {
+  it("should fail if user is a regular team member (not manager)", async () => {
     vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
     vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
     vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue({
       ...mockTeamMember,
       userId: "user-123",
     });
+
+    const result = await deleteTeam("user-123", "team-123");
+
+    expect(result.error).toBe("You do not have permission to delete this team");
+  });
+
+  it("should fail if user is not a team manager (even if league manager)", async () => {
+    vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
+    vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(
+      mockManagerMember,
+    );
+    vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue(undefined);
 
     const result = await deleteTeam("user-123", "team-123");
 
@@ -518,13 +553,29 @@ describe("addTeamMember", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("should fail if user is not team manager and not league manager", async () => {
+  it("should fail if user is a regular team member (not manager)", async () => {
     vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
     vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
     vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue({
       ...mockTeamMember,
       userId: "user-123",
     });
+
+    const result = await addTeamMember("user-123", "team-123", {
+      userId: "user-456",
+    });
+
+    expect(result.error).toBe(
+      "You do not have permission to add members to this team",
+    );
+  });
+
+  it("should fail if user is not a team manager (even if league manager)", async () => {
+    vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
+    vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(
+      mockManagerMember,
+    );
+    vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue(undefined);
 
     const result = await addTeamMember("user-123", "team-123", {
       userId: "user-456",
@@ -617,7 +668,7 @@ describe("removeTeamMember", () => {
     expect(result.error).toBe("Team member not found");
   });
 
-  it("should fail if user is not team manager and not league manager", async () => {
+  it("should fail if user is a regular team member (not manager)", async () => {
     vi.mocked(dbTeams.getTeamMemberById).mockResolvedValue(mockTeamMember);
     vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
     vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
@@ -625,6 +676,21 @@ describe("removeTeamMember", () => {
       ...mockTeamMember,
       userId: "user-123",
     });
+
+    const result = await removeTeamMember("user-123", "team-member-123");
+
+    expect(result.error).toBe(
+      "You do not have permission to remove members from this team",
+    );
+  });
+
+  it("should fail if user is not a team manager (even if league manager)", async () => {
+    vi.mocked(dbTeams.getTeamMemberById).mockResolvedValue(mockTeamMember);
+    vi.mocked(dbTeams.getTeamById).mockResolvedValue(mockTeam);
+    vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(
+      mockManagerMember,
+    );
+    vi.mocked(dbTeams.getTeamMemberByUserId).mockResolvedValue(undefined);
 
     const result = await removeTeamMember("user-123", "team-member-123");
 

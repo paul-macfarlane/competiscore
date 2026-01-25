@@ -4,13 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/server/auth";
 import { TeamMemberRole } from "@/lib/shared/constants";
-import {
-  LeagueAction,
-  TeamAction,
-  canPerformAction,
-  canPerformTeamAction,
-} from "@/lib/shared/permissions";
-import { getLeagueWithRole } from "@/services/leagues";
+import { TeamAction, canPerformTeamAction } from "@/lib/shared/permissions";
 import { getTeam } from "@/services/teams";
 import { Settings, Users } from "lucide-react";
 import { headers } from "next/headers";
@@ -34,34 +28,21 @@ export default async function TeamDetailPage({ params }: PageProps) {
     redirect("/");
   }
 
-  const [teamResult, leagueResult] = await Promise.all([
-    getTeam(session.user.id, teamId),
-    getLeagueWithRole(leagueId, session.user.id),
-  ]);
+  const teamResult = await getTeam(session.user.id, teamId);
 
   if (teamResult.error || !teamResult.data) {
     notFound();
   }
 
-  if (leagueResult.error || !leagueResult.data) {
-    notFound();
-  }
-
   const team = teamResult.data;
-  const league = leagueResult.data;
   const userTeamMember = team.members.find(
     (m) => m.userId === session.user.id && !m.leftAt,
   );
   const isMember = !!userTeamMember;
   const isTeamManager =
-    userTeamMember?.role === TeamMemberRole.MANAGER ||
-    (userTeamMember &&
-      canPerformTeamAction(userTeamMember.role, TeamAction.EDIT_TEAM));
-  const hasLeagueManagePermission = canPerformAction(
-    league.role,
-    LeagueAction.MANAGE_TEAMS,
-  );
-  const canManage = isTeamManager || hasLeagueManagePermission;
+    userTeamMember &&
+    canPerformTeamAction(userTeamMember.role, TeamAction.EDIT_TEAM);
+  const canManage = isTeamManager;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">

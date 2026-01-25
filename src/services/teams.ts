@@ -138,13 +138,10 @@ export async function updateTeam(
   }
 
   const teamMember = await dbGetTeamMemberByUserId(teamId, userId);
-  const hasTeamPermission =
-    teamMember && canPerformTeamAction(teamMember.role, TeamAction.EDIT_TEAM);
-  const hasLeaguePermission = canPerformAction(
-    membership.role,
-    LeagueAction.MANAGE_TEAMS,
-  );
-  if (!hasTeamPermission && !hasLeaguePermission) {
+  if (
+    !teamMember ||
+    !canPerformTeamAction(teamMember.role, TeamAction.EDIT_TEAM)
+  ) {
     return { error: "You do not have permission to edit this team" };
   }
 
@@ -198,14 +195,10 @@ export async function archiveTeam(
   }
 
   const teamMember = await dbGetTeamMemberByUserId(teamId, userId);
-  const hasTeamPermission =
-    teamMember &&
-    canPerformTeamAction(teamMember.role, TeamAction.ARCHIVE_TEAM);
-  const hasLeaguePermission = canPerformAction(
-    membership.role,
-    LeagueAction.MANAGE_TEAMS,
-  );
-  if (!hasTeamPermission && !hasLeaguePermission) {
+  if (
+    !teamMember ||
+    !canPerformTeamAction(teamMember.role, TeamAction.ARCHIVE_TEAM)
+  ) {
     return { error: "You do not have permission to archive this team" };
   }
 
@@ -228,14 +221,10 @@ export async function unarchiveTeam(
   }
 
   const teamMember = await dbGetTeamMemberByUserId(teamId, userId);
-  const hasTeamPermission =
-    teamMember &&
-    canPerformTeamAction(teamMember.role, TeamAction.UNARCHIVE_TEAM);
-  const hasLeaguePermission = canPerformAction(
-    membership.role,
-    LeagueAction.MANAGE_TEAMS,
-  );
-  if (!hasTeamPermission && !hasLeaguePermission) {
+  if (
+    !teamMember ||
+    !canPerformTeamAction(teamMember.role, TeamAction.UNARCHIVE_TEAM)
+  ) {
     return { error: "You do not have permission to unarchive this team" };
   }
 
@@ -258,13 +247,10 @@ export async function deleteTeam(
   }
 
   const teamMember = await dbGetTeamMemberByUserId(teamId, userId);
-  const hasTeamPermission =
-    teamMember && canPerformTeamAction(teamMember.role, TeamAction.DELETE_TEAM);
-  const hasLeaguePermission = canPerformAction(
-    membership.role,
-    LeagueAction.MANAGE_TEAMS,
-  );
-  if (!hasTeamPermission && !hasLeaguePermission) {
+  if (
+    !teamMember ||
+    !canPerformTeamAction(teamMember.role, TeamAction.DELETE_TEAM)
+  ) {
     return { error: "You do not have permission to delete this team" };
   }
 
@@ -292,14 +278,10 @@ export async function addTeamMember(
   }
 
   const actingTeamMember = await dbGetTeamMemberByUserId(teamId, userId);
-  const hasTeamPermission =
-    actingTeamMember &&
-    canPerformTeamAction(actingTeamMember.role, TeamAction.ADD_MEMBERS);
-  const hasLeaguePermission = canPerformAction(
-    membership.role,
-    LeagueAction.MANAGE_TEAMS,
-  );
-  if (!hasTeamPermission && !hasLeaguePermission) {
+  if (
+    !actingTeamMember ||
+    !canPerformTeamAction(actingTeamMember.role, TeamAction.ADD_MEMBERS)
+  ) {
     return { error: "You do not have permission to add members to this team" };
   }
 
@@ -368,14 +350,10 @@ export async function removeTeamMember(
   }
 
   const actingTeamMember = await dbGetTeamMemberByUserId(team.id, userId);
-  const hasTeamPermission =
-    actingTeamMember &&
-    canPerformTeamAction(actingTeamMember.role, TeamAction.REMOVE_MEMBERS);
-  const hasLeaguePermission = canPerformAction(
-    membership.role,
-    LeagueAction.MANAGE_TEAMS,
-  );
-  if (!hasTeamPermission && !hasLeaguePermission) {
+  if (
+    !actingTeamMember ||
+    !canPerformTeamAction(actingTeamMember.role, TeamAction.REMOVE_MEMBERS)
+  ) {
     return {
       error: "You do not have permission to remove members from this team",
     };

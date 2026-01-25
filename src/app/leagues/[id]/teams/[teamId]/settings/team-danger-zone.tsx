@@ -13,10 +13,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Team } from "@/db/schema";
 import { Archive, RotateCcw, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import {
@@ -41,6 +52,10 @@ export function TeamDangerZone({
 }: TeamDangerZoneProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
+  const canDelete = deleteConfirmText === team.name;
 
   const handleArchive = () => {
     startTransition(async () => {
@@ -67,11 +82,14 @@ export function TeamDangerZone({
   };
 
   const handleDelete = () => {
+    if (!canDelete) return;
+
     startTransition(async () => {
       const result = await deleteTeamAction(team.id);
       if (result.error) {
         toast.error(result.error);
       } else {
+        setIsDeleteDialogOpen(false);
         toast.success("Team deleted");
         router.push(`/leagues/${leagueId}/teams`);
       }
@@ -191,32 +209,57 @@ export function TeamDangerZone({
               Permanently delete this team. This action cannot be undone.
             </p>
           </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <Dialog
+            open={isDeleteDialogOpen}
+            onOpenChange={(open) => {
+              setIsDeleteDialogOpen(open);
+              if (!open) setDeleteConfirmText("");
+            }}
+          >
+            <DialogTrigger asChild>
               <Button variant="destructive" disabled={isPending}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Team?</AlertDialogTitle>
-                <AlertDialogDescription>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete this team permanently?</DialogTitle>
+                <DialogDescription>
                   This will permanently delete the team and all its members.
                   This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 py-4">
+                <Label htmlFor="confirm-delete">
+                  Type <span className="font-semibold">{team.name}</span> to
+                  confirm
+                </Label>
+                <Input
+                  id="confirm-delete"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={team.name}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDeleteDialogOpen(false)}
+                  disabled={isPending}
                 >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={isPending || !canDelete}
+                >
+                  {isPending ? "Deleting..." : "Delete Forever"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
     </Card>

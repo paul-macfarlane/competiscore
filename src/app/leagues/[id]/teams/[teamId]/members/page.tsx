@@ -9,13 +9,7 @@ import { getLeagueMembers } from "@/db/league-members";
 import { getActivePlaceholderMembersByLeague } from "@/db/placeholder-members";
 import { getPendingTeamInvitationsForTeam } from "@/db/team-invitations";
 import { auth } from "@/lib/server/auth";
-import {
-  LeagueAction,
-  TeamAction,
-  canPerformAction,
-  canPerformTeamAction,
-} from "@/lib/shared/permissions";
-import { getLeagueWithRole } from "@/services/leagues";
+import { TeamAction, canPerformTeamAction } from "@/lib/shared/permissions";
 import { getTeam } from "@/services/teams";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -39,33 +33,21 @@ export default async function TeamMembersPage({ params }: PageProps) {
     redirect("/");
   }
 
-  const [teamResult, leagueResult] = await Promise.all([
-    getTeam(session.user.id, teamId),
-    getLeagueWithRole(leagueId, session.user.id),
-  ]);
+  const teamResult = await getTeam(session.user.id, teamId);
 
   if (teamResult.error || !teamResult.data) {
     notFound();
   }
 
-  if (leagueResult.error || !leagueResult.data) {
-    notFound();
-  }
-
   const team = teamResult.data;
-  const league = leagueResult.data;
 
   const userTeamMember = team.members.find(
     (m) => m.userId === session.user.id && !m.leftAt,
   );
-  const hasTeamPermission =
+  // Team member management requires being a team manager - no league-level fallback
+  const canManageMembers =
     userTeamMember &&
-    canPerformTeamAction(userTeamMember.role, TeamAction.INVITE_MEMBERS);
-  const hasLeaguePermission = canPerformAction(
-    league.role,
-    LeagueAction.MANAGE_TEAMS,
-  );
-  const canManageMembers = hasTeamPermission || hasLeaguePermission;
+    canPerformTeamAction(userTeamMember.role, TeamAction.ADD_MEMBERS);
 
   if (!canManageMembers) {
     redirect(`/leagues/${leagueId}/teams/${teamId}`);
