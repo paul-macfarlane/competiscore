@@ -12,6 +12,7 @@ import {
 import { LeagueMemberRole } from "@/lib/shared/constants";
 import { LeagueAction, canPerformAction } from "@/lib/shared/permissions";
 import { ROLE_BADGE_VARIANTS } from "@/lib/shared/roles";
+import { getPendingChallenges } from "@/services/challenges";
 import { getExecutiveCount, getLeagueWithRole } from "@/services/leagues";
 import {
   getOwnReportCount,
@@ -26,6 +27,7 @@ import {
   Gamepad2,
   Settings,
   Shield,
+  Swords,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -237,6 +239,10 @@ async function LeagueDashboardContent({
           <TeamsCard leagueId={leagueId} userId={userId} />
         </Suspense>
 
+        <Suspense fallback={<Skeleton className="h-32" />}>
+          <ChallengesCard leagueId={leagueId} userId={userId} />
+        </Suspense>
+
         <Card className="h-full flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Members</CardTitle>
@@ -367,6 +373,53 @@ async function TeamsCard({
         </div>
         <Button asChild size="sm">
           <Link href={`/leagues/${leagueId}/teams`}>View Teams</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+async function ChallengesCard({
+  leagueId,
+  userId,
+}: {
+  leagueId: string;
+  userId: string;
+}) {
+  const result = await getPendingChallenges(userId, leagueId);
+  const challenges = result.data || [];
+
+  return (
+    <Card className="h-full flex flex-col">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">Challenges</CardTitle>
+        <Swords className="text-muted-foreground h-4 w-4" />
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col justify-between space-y-2">
+        <div>
+          {challenges.length > 0 ? (
+            <>
+              <div className="text-2xl font-bold flex items-center gap-2">
+                {challenges.length}
+                <Badge variant="default" className="text-xs">
+                  Pending
+                </Badge>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {challenges.length === 1 ? "challenge" : "challenges"} waiting
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-muted-foreground text-xs">
+                No pending challenges
+              </p>
+            </>
+          )}
+        </div>
+        <Button asChild size="sm">
+          <Link href={`/leagues/${leagueId}/challenges`}>View Challenges</Link>
         </Button>
       </CardContent>
     </Card>

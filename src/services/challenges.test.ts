@@ -635,7 +635,7 @@ describe("getPendingChallenges", () => {
     vi.clearAllMocks();
   });
 
-  it("should get pending challenges successfully", async () => {
+  it("should get pending challenges successfully with gameType data", async () => {
     vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
     vi.mocked(dbMatches.getPendingChallengesForUser).mockResolvedValue([
       mockPendingChallenge,
@@ -648,10 +648,39 @@ describe("getPendingChallenges", () => {
         placeholderMember: null,
       })),
     );
+    vi.mocked(dbGameTypes.getGameTypeById).mockResolvedValue(
+      mockH2HWinLossGameType,
+    );
 
     const result = await getPendingChallenges(USER_ID_1, LEAGUE_ID);
 
     expect(result.data).toHaveLength(1);
+    expect(result.data?.[0].gameType).toEqual({
+      id: GAME_TYPE_ID,
+      name: "Chess",
+      category: GameCategory.HEAD_TO_HEAD,
+    });
+    expect(result.error).toBeUndefined();
+  });
+
+  it("should skip challenges with missing gameType", async () => {
+    vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
+    vi.mocked(dbMatches.getPendingChallengesForUser).mockResolvedValue([
+      mockPendingChallenge,
+    ]);
+    vi.mocked(dbMatches.getMatchParticipants).mockResolvedValue(
+      mockParticipants.map((p) => ({
+        ...p,
+        user: null,
+        team: null,
+        placeholderMember: null,
+      })),
+    );
+    vi.mocked(dbGameTypes.getGameTypeById).mockResolvedValue(undefined);
+
+    const result = await getPendingChallenges(USER_ID_1, LEAGUE_ID);
+
+    expect(result.data).toHaveLength(0);
     expect(result.error).toBeUndefined();
   });
 
@@ -669,7 +698,7 @@ describe("getSentChallenges", () => {
     vi.clearAllMocks();
   });
 
-  it("should get sent challenges successfully", async () => {
+  it("should get sent challenges successfully with gameType data", async () => {
     vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
     vi.mocked(dbMatches.getSentChallengesByUser).mockResolvedValue([
       mockPendingChallenge,
@@ -682,10 +711,39 @@ describe("getSentChallenges", () => {
         placeholderMember: null,
       })),
     );
+    vi.mocked(dbGameTypes.getGameTypeById).mockResolvedValue(
+      mockH2HWinLossGameType,
+    );
 
     const result = await getSentChallenges(USER_ID_1, LEAGUE_ID);
 
     expect(result.data).toHaveLength(1);
+    expect(result.data?.[0].gameType).toEqual({
+      id: GAME_TYPE_ID,
+      name: "Chess",
+      category: GameCategory.HEAD_TO_HEAD,
+    });
+    expect(result.error).toBeUndefined();
+  });
+
+  it("should skip challenges with missing gameType", async () => {
+    vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
+    vi.mocked(dbMatches.getSentChallengesByUser).mockResolvedValue([
+      mockPendingChallenge,
+    ]);
+    vi.mocked(dbMatches.getMatchParticipants).mockResolvedValue(
+      mockParticipants.map((p) => ({
+        ...p,
+        user: null,
+        team: null,
+        placeholderMember: null,
+      })),
+    );
+    vi.mocked(dbGameTypes.getGameTypeById).mockResolvedValue(undefined);
+
+    const result = await getSentChallenges(USER_ID_1, LEAGUE_ID);
+
+    expect(result.data).toHaveLength(0);
     expect(result.error).toBeUndefined();
   });
 

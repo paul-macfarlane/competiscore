@@ -5,6 +5,7 @@ import {
   NotificationAction,
   NotificationType,
 } from "@/lib/shared/notifications";
+import { acceptChallenge, declineChallenge } from "@/services/challenges";
 import { acceptInvitation, declineInvitation } from "@/services/invitations";
 import { acknowledgeModerationAction } from "@/services/moderation";
 import { getNotifications } from "@/services/notifications";
@@ -112,8 +113,24 @@ export async function handleNotificationAction(input: unknown) {
       return { error: "Invalid action" };
     }
 
-    // Future: Add handlers for other notification types
-    // case NotificationType.CHALLENGE: { ... }
+    case NotificationType.CHALLENGE: {
+      const matchId = notificationId.replace("challenge_", "");
+
+      if (action === NotificationAction.ACCEPT) {
+        const result = await acceptChallenge(session.user.id, { matchId });
+        if (result.data) {
+          revalidatePath(`/leagues/${result.data.leagueId}/challenges`);
+        }
+        return result;
+      } else if (action === NotificationAction.DECLINE) {
+        const result = await declineChallenge(session.user.id, { matchId });
+        if (result.data) {
+          revalidatePath(`/leagues/${result.data.leagueId}/challenges`);
+        }
+        return result;
+      }
+      return { error: "Invalid action" };
+    }
 
     default:
       return { error: "Unknown notification type" };
