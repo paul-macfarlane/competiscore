@@ -95,7 +95,7 @@ This document tracks all tasks for Phase 2 of Competiscore development, focusing
 
 ## 3. Match Recording
 
-**Status: 🔄 In Progress (75%)**
+**Status: ✅ Complete**
 
 ### Database Schema
 
@@ -121,9 +121,9 @@ This document tracks all tasks for Phase 2 of Competiscore development, focusing
 ### Challenge System
 
 - [x] Create challenge (pending match)
-- [ ] Accept/Reject challenge
-- [ ] Record result for pending challenge
-- [ ] Challenge notifications
+- [x] Accept/Reject challenge
+- [x] Record result for pending challenge
+- [x] Challenge notifications
 
 ### UI/UX
 

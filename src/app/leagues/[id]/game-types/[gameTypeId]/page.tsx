@@ -34,7 +34,7 @@ import {
 import { getLeagueWithRole } from "@/services/leagues";
 import { getGameTypeMatches } from "@/services/matches";
 import { formatDistanceToNow } from "date-fns";
-import { Archive, Plus, Settings, Trophy } from "lucide-react";
+import { Archive, Plus, Settings, Swords, Trophy } from "lucide-react";
 import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
@@ -206,17 +206,29 @@ export default async function GameTypeDetailPage({ params }: PageProps) {
             <div className="flex gap-2">
               {canPerformAction(league.role, LeagueAction.PLAY_GAMES) &&
                 !gameType.isArchived && (
-                  <Button size="sm" asChild>
-                    <Link
-                      href={`/leagues/${leagueId}/game-types/${gameTypeId}/record`}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Record
-                    </Link>
-                  </Button>
+                  <>
+                    {gameType.category === GameCategory.HEAD_TO_HEAD && (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          href={`/leagues/${leagueId}/game-types/${gameTypeId}/challenge`}
+                        >
+                          <Swords className="mr-2 h-4 w-4" />
+                          Challenge
+                        </Link>
+                      </Button>
+                    )}
+                    <Button size="sm" asChild>
+                      <Link
+                        href={`/leagues/${leagueId}/game-types/${gameTypeId}/record`}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Record
+                      </Link>
+                    </Button>
+                  </>
                 )}
 
-              <Button size="sm" asChild>
+              <Button variant="outline" size="sm" asChild>
                 <Link
                   href={`/leagues/${leagueId}/matches?gameTypeId=${gameTypeId}`}
                 >

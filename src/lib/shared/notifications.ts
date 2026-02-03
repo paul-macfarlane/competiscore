@@ -8,7 +8,7 @@ export const NotificationType = {
   LEAGUE_INVITATION: "league_invitation",
   TEAM_INVITATION: "team_invitation",
   MODERATION_ACTION: "moderation_action",
-  // Future: CHALLENGE: "challenge",
+  CHALLENGE: "challenge",
   // Future: MATCH_RESULT: "match_result",
 } as const;
 
@@ -68,19 +68,21 @@ export type ModerationActionNotification = BaseNotification & {
   };
 };
 
-// Future notification types follow the same pattern:
-// export type ChallengeNotification = BaseNotification & {
-//   type: typeof NotificationType.CHALLENGE;
-//   data: {
-//     challengeId: string;
-//     challengerName: string;
-//     gameTypeName: string;
-//     leagueName: string;
-//   };
-// };
+export type ChallengeNotification = BaseNotification & {
+  type: typeof NotificationType.CHALLENGE;
+  data: {
+    matchId: string;
+    leagueId: string;
+    leagueName: string;
+    challengerName: string;
+    gameTypeName: string;
+    challengedAt: Date;
+  };
+};
 
 export type Notification =
   | LeagueInvitationNotification
   | TeamInvitationNotification
-  | ModerationActionNotification;
-// Future: | ChallengeNotification | MatchResultNotification
+  | ModerationActionNotification
+  | ChallengeNotification;
+// Future: | MatchResultNotification

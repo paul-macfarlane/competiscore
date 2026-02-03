@@ -131,7 +131,7 @@ type ChallengeCardProps = {
     status: string;
     playedAt: Date;
     challengedAt: Date | null;
-    gameType?: { id: string; name: string; category: string } | null;
+    gameType: { id: string; name: string; category: string };
     participants: Array<{
       id: string;
       side: number | null;
@@ -153,7 +153,6 @@ type ChallengeCardProps = {
 };
 
 function ChallengeCard({ challenge, leagueId, type }: ChallengeCardProps) {
-  const gameType = challenge.gameType;
   const challengers = challenge.participants.filter(
     (p) => p.isChallenged === false,
   );
@@ -191,9 +190,7 @@ function ChallengeCard({ challenge, leagueId, type }: ChallengeCardProps) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">
-            {gameType?.name || "Unknown Game"}
-          </CardTitle>
+          <CardTitle className="text-lg">{challenge.gameType.name}</CardTitle>
           <Badge variant={statusBadgeVariant(challenge.status)}>
             {MATCH_STATUS_LABELS[challenge.status as MatchStatus]}
           </Badge>
@@ -227,7 +224,7 @@ function ChallengeCard({ challenge, leagueId, type }: ChallengeCardProps) {
           status={challenge.status}
           type={type}
           leagueId={leagueId}
-          gameTypeId={gameType?.id}
+          gameTypeId={challenge.gameType.id}
         />
       </CardContent>
     </Card>

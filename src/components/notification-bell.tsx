@@ -16,6 +16,7 @@ import {
   ModerationActionType,
 } from "@/lib/shared/constants";
 import {
+  ChallengeNotification,
   LeagueInvitationNotification,
   ModerationActionNotification,
   Notification,
@@ -31,6 +32,7 @@ import {
   Check,
   Loader2,
   Shield,
+  Swords,
   UserMinus,
   X,
 } from "lucide-react";
@@ -160,9 +162,13 @@ function NotificationItem({ notification, onAction }: NotificationItemProps) {
           onAction={onAction}
         />
       );
-    // Future: Add cases for other notification types
-    // case NotificationType.CHALLENGE:
-    //   return <ChallengeNotificationItem ... />;
+    case NotificationType.CHALLENGE:
+      return (
+        <ChallengeNotificationItem
+          notification={notification}
+          onAction={onAction}
+        />
+      );
     default:
       return null;
   }
@@ -513,6 +519,107 @@ function ModerationNotificationItem({
                   View Details
                 </Button>
               )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ChallengeNotificationItemProps {
+  notification: ChallengeNotification;
+  onAction: (
+    notification: Notification,
+    action: NotificationAction,
+  ) => Promise<{ error?: string }>;
+}
+
+function ChallengeNotificationItem({
+  notification,
+  onAction,
+}: ChallengeNotificationItemProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAccept = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await onAction(notification, NotificationAction.ACCEPT);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        router.push(`/leagues/${notification.data.leagueId}/challenges`);
+      }
+    });
+  };
+
+  const handleDecline = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await onAction(notification, NotificationAction.DECLINE);
+      if (result.error) {
+        setError(result.error);
+      }
+    });
+  };
+
+  return (
+    <div className="p-3">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-muted">
+          <Swords className="h-5 w-5 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">New Challenge</p>
+          <p className="text-sm mt-0.5">
+            <span className="font-medium">
+              {notification.data.challengerName}
+            </span>
+            {" challenged you to "}
+            <span className="font-medium">
+              {notification.data.gameTypeName}
+            </span>
+          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs">
+              {notification.data.leagueName}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(notification.data.challengedAt), {
+                addSuffix: true,
+              })}
+            </span>
+          </div>
+          {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+          <div className="mt-2 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={handleDecline}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <X className="mr-1 h-3 w-3" />
+              )}
+              Decline
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              onClick={handleAccept}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Check className="mr-1 h-3 w-3" />
+              )}
+              Accept
+            </Button>
           </div>
         </div>
       </div>

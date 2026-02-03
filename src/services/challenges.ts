@@ -482,18 +482,37 @@ export async function recordChallengeH2HScoreResult(
 export async function getPendingChallenges(
   userId: string,
   leagueId: string,
-): Promise<ServiceResult<MatchWithParticipants[]>> {
+): Promise<
+  ServiceResult<
+    (MatchWithParticipants & {
+      gameType: { id: string; name: string; category: string };
+    })[]
+  >
+> {
   const membership = await getLeagueMember(userId, leagueId);
   if (!membership) {
     return { error: "You are not a member of this league" };
   }
 
   const challenges = await dbGetPendingChallengesForUser(userId, leagueId);
-  const challengesWithParticipants: MatchWithParticipants[] = [];
+  const challengesWithParticipants: (MatchWithParticipants & {
+    gameType: { id: string; name: string; category: string };
+  })[] = [];
 
   for (const challenge of challenges) {
     const participants = await dbGetMatchParticipants(challenge.id);
-    challengesWithParticipants.push({ ...challenge, participants });
+    const gameType = await dbGetGameTypeById(challenge.gameTypeId);
+    if (gameType) {
+      challengesWithParticipants.push({
+        ...challenge,
+        participants,
+        gameType: {
+          id: gameType.id,
+          name: gameType.name,
+          category: gameType.category,
+        },
+      });
+    }
   }
 
   return { data: challengesWithParticipants };
@@ -502,18 +521,37 @@ export async function getPendingChallenges(
 export async function getSentChallenges(
   userId: string,
   leagueId: string,
-): Promise<ServiceResult<MatchWithParticipants[]>> {
+): Promise<
+  ServiceResult<
+    (MatchWithParticipants & {
+      gameType: { id: string; name: string; category: string };
+    })[]
+  >
+> {
   const membership = await getLeagueMember(userId, leagueId);
   if (!membership) {
     return { error: "You are not a member of this league" };
   }
 
   const challenges = await dbGetSentChallengesByUser(userId, leagueId);
-  const challengesWithParticipants: MatchWithParticipants[] = [];
+  const challengesWithParticipants: (MatchWithParticipants & {
+    gameType: { id: string; name: string; category: string };
+  })[] = [];
 
   for (const challenge of challenges) {
     const participants = await dbGetMatchParticipants(challenge.id);
-    challengesWithParticipants.push({ ...challenge, participants });
+    const gameType = await dbGetGameTypeById(challenge.gameTypeId);
+    if (gameType) {
+      challengesWithParticipants.push({
+        ...challenge,
+        participants,
+        gameType: {
+          id: gameType.id,
+          name: gameType.name,
+          category: gameType.category,
+        },
+      });
+    }
   }
 
   return { data: challengesWithParticipants };

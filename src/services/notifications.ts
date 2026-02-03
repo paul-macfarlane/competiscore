@@ -1,3 +1,4 @@
+import { getPendingChallengesWithDetailsForUser } from "@/db/matches";
 import { getUnacknowledgedModerationActions } from "@/db/moderation-actions";
 import { ModerationActionType } from "@/lib/shared/constants";
 import { Notification, NotificationType } from "@/lib/shared/notifications";
@@ -69,11 +70,23 @@ export async function getNotifications(
     });
   }
 
-  // Future: Add other notification types here
-  // const challenges = await getPendingChallenges(userId);
-  // for (const challenge of challenges) { ... }
+  const challenges = await getPendingChallengesWithDetailsForUser(userId);
+  for (const challenge of challenges) {
+    notifications.push({
+      type: NotificationType.CHALLENGE,
+      id: `challenge_${challenge.id}`,
+      createdAt: challenge.challengedAt ?? challenge.createdAt,
+      data: {
+        matchId: challenge.id,
+        leagueId: challenge.leagueId,
+        leagueName: challenge.league.name,
+        challengerName: challenge.challenger.name,
+        gameTypeName: challenge.gameType.name,
+        challengedAt: challenge.challengedAt ?? challenge.createdAt,
+      },
+    });
+  }
 
-  // Sort by date, newest first
   notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return { data: notifications };

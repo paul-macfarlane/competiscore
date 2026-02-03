@@ -1,3 +1,4 @@
+import { MatchStatus } from "@/lib/shared/constants";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { DBOrTx, db } from "./index";
@@ -7,6 +8,7 @@ import {
   NewMatch,
   NewMatchParticipant,
   gameType,
+  league,
   match,
   matchColumns,
   matchParticipant,
@@ -265,7 +267,7 @@ export async function updateMatchParticipantResults(
 
 export async function getPendingChallengesForUser(
   userId: string,
-  leagueId: string,
+  leagueId: string | null,
   dbOrTx: DBOrTx = db,
 ): Promise<Match[]> {
   const challengedMatchIds = dbOrTx
@@ -278,17 +280,77 @@ export async function getPendingChallengesForUser(
       ),
     );
 
+  const conditions = [
+    eq(match.status, MatchStatus.PENDING),
+    inArray(match.id, challengedMatchIds),
+  ];
+
+  if (leagueId !== null) {
+    conditions.push(eq(match.leagueId, leagueId));
+  }
+
   return await dbOrTx
     .select()
     .from(match)
+    .where(and(...conditions))
+    .orderBy(desc(match.challengedAt));
+}
+
+export type PendingChallengeWithDetails = Match & {
+  league: {
+    id: string;
+    name: string;
+  };
+  gameType: {
+    id: string;
+    name: string;
+  };
+  challenger: {
+    id: string;
+    name: string;
+  };
+};
+
+export async function getPendingChallengesWithDetailsForUser(
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<PendingChallengeWithDetails[]> {
+  const challengedMatchIds = dbOrTx
+    .select({ matchId: matchParticipant.matchId })
+    .from(matchParticipant)
     .where(
       and(
-        eq(match.leagueId, leagueId),
-        eq(match.status, "pending"),
-        inArray(match.id, challengedMatchIds),
+        eq(matchParticipant.userId, userId),
+        eq(matchParticipant.isChallenged, true),
       ),
+    );
+
+  const results = await dbOrTx
+    .select({
+      ...matchColumns,
+      league: {
+        id: league.id,
+        name: league.name,
+      },
+      gameType: {
+        id: gameType.id,
+        name: gameType.name,
+      },
+      challenger: {
+        id: user.id,
+        name: user.name,
+      },
+    })
+    .from(match)
+    .innerJoin(league, eq(match.leagueId, league.id))
+    .innerJoin(gameType, eq(match.gameTypeId, gameType.id))
+    .innerJoin(user, eq(match.challengerId, user.id))
+    .where(
+      and(eq(match.status, "pending"), inArray(match.id, challengedMatchIds)),
     )
     .orderBy(desc(match.challengedAt));
+
+  return results;
 }
 
 export async function getSentChallengesByUser(
