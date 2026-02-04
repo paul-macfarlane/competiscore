@@ -21,34 +21,41 @@ import { joinLeagueAction, searchLeaguesAction } from "../actions";
 export function LeagueSearch() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [gameTypeFilter, setGameTypeFilter] = useState("");
   const [results, setResults] = useState<SearchResultLeague[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const performSearch = useCallback(async (searchQuery: string) => {
-    if (searchQuery.length < 1) {
-      setResults([]);
-      setHasSearched(false);
-      return;
-    }
+  const performSearch = useCallback(
+    async (searchQuery: string, gameType: string) => {
+      if (searchQuery.length < 1 && gameType.length < 1) {
+        setResults([]);
+        setHasSearched(false);
+        return;
+      }
 
-    setIsSearching(true);
-    setError(null);
+      setIsSearching(true);
+      setError(null);
 
-    const result = await searchLeaguesAction(searchQuery);
+      const result = await searchLeaguesAction({
+        query: searchQuery || undefined,
+        gameType: gameType || undefined,
+      });
 
-    if (result.error) {
-      setError(result.error);
-      setResults([]);
-    } else if (result.data) {
-      setResults(result.data);
-    }
+      if (result.error) {
+        setError(result.error);
+        setResults([]);
+      } else if (result.data) {
+        setResults(result.data);
+      }
 
-    setHasSearched(true);
-    setIsSearching(false);
-  }, []);
+      setHasSearched(true);
+      setIsSearching(false);
+    },
+    [],
+  );
 
   const handleQueryChange = useCallback(
     (newQuery: string) => {
@@ -59,10 +66,25 @@ export function LeagueSearch() {
       }
 
       searchTimeoutRef.current = setTimeout(() => {
-        performSearch(newQuery);
+        performSearch(newQuery, gameTypeFilter);
       }, 300);
     },
-    [performSearch],
+    [performSearch, gameTypeFilter],
+  );
+
+  const handleGameTypeChange = useCallback(
+    (newGameType: string) => {
+      setGameTypeFilter(newGameType);
+
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+
+      searchTimeoutRef.current = setTimeout(() => {
+        performSearch(query, newGameType);
+      }, 300);
+    },
+    [performSearch, query],
   );
 
   useEffect(() => {
@@ -75,13 +97,21 @@ export function LeagueSearch() {
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+          <Input
+            placeholder="League name or description (optional)..."
+            value={query}
+            onChange={(e) => handleQueryChange(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Input
-          placeholder="Search by league name or description..."
-          value={query}
-          onChange={(e) => handleQueryChange(e.target.value)}
-          className="pl-9"
+          placeholder="Game type (e.g. Ping Pong)..."
+          value={gameTypeFilter}
+          onChange={(e) => handleGameTypeChange(e.target.value)}
+          className="sm:w-64"
         />
       </div>
 
@@ -97,12 +127,23 @@ export function LeagueSearch() {
         </p>
       )}
 
+      {!isSearching && !hasSearched && (
+        <div className="rounded-lg border border-dashed p-8 text-center">
+          <Search className="text-muted-foreground mx-auto h-12 w-12" />
+          <h3 className="mt-4 text-lg font-semibold">Search for leagues</h3>
+          <p className="text-muted-foreground mt-2 text-sm">
+            Enter a league name, description, or game type to find public
+            leagues to join.
+          </p>
+        </div>
+      )}
+
       {!isSearching && hasSearched && results.length === 0 && (
         <div className="rounded-lg border border-dashed p-8 text-center">
           <Search className="text-muted-foreground mx-auto h-12 w-12" />
           <h3 className="mt-4 text-lg font-semibold">No leagues found</h3>
           <p className="text-muted-foreground mt-2 text-sm">
-            Try a different search term or create your own league.
+            Try a different search term or game type, or create your own league.
           </p>
         </div>
       )}
@@ -185,6 +226,19 @@ function SearchResultCard({
                   {league.memberCount === 1 ? "member" : "members"}
                 </span>
               </div>
+              {league.gameTypes.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {league.gameTypes.map((gameType) => (
+                    <Badge
+                      key={gameType.id}
+                      variant={gameType.isMatch ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {gameType.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
               {error && (
                 <p className="text-destructive mt-2 text-sm">{error}</p>
               )}

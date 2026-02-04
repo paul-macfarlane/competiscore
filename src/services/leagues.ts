@@ -17,6 +17,7 @@ import {
   searchPublicLeagues as dbSearchPublicLeagues,
   unarchiveLeague as dbUnarchiveLeague,
   updateLeague as dbUpdateLeague,
+  getLeagueGameTypesForSearch,
 } from "@/db/leagues";
 import { League } from "@/db/schema";
 import { canUserJoinAnotherLeague } from "@/lib/server/limits";
@@ -255,15 +256,25 @@ export async function getUserLeagues(
   return { data: leagues };
 }
 
-const searchQuerySchema = z.string().min(1).max(100);
+const searchQuerySchema = z
+  .object({
+    query: z.string().max(100).optional(),
+    gameType: z.string().min(1).max(100).optional(),
+  })
+  .refine((data) => data.query || data.gameType, {
+    message: "Either league name/description or game type must be provided",
+  });
 
-export type SearchResultLeague = LeagueWithMemberCount & { isMember: boolean };
+export type SearchResultLeague = LeagueWithMemberCount & {
+  isMember: boolean;
+  gameTypes: Array<{ id: string; name: string; isMatch: boolean }>;
+};
 
 export async function searchPublicLeagues(
-  query: unknown,
+  input: unknown,
   userId: string,
 ): Promise<ServiceResult<SearchResultLeague[]>> {
-  const parsed = searchQuerySchema.safeParse(query);
+  const parsed = searchQuerySchema.safeParse(input);
   if (!parsed.success) {
     return {
       error: "Invalid search query",
@@ -271,19 +282,27 @@ export async function searchPublicLeagues(
     };
   }
 
-  const leagues = await dbSearchPublicLeagues(parsed.data);
+  const leagues = await dbSearchPublicLeagues(
+    parsed.data.query || "",
+    parsed.data.gameType,
+  );
 
-  const leaguesWithMembership = await Promise.all(
+  const leaguesWithDetails = await Promise.all(
     leagues.map(async (league) => {
-      const membership = await getLeagueMember(userId, league.id);
+      const [membership, gameTypes] = await Promise.all([
+        getLeagueMember(userId, league.id),
+        getLeagueGameTypesForSearch(league.id, parsed.data.gameType),
+      ]);
+
       return {
         ...league,
         isMember: !!membership,
+        gameTypes,
       };
     }),
   );
 
-  return { data: leaguesWithMembership };
+  return { data: leaguesWithDetails };
 }
 
 export async function joinPublicLeague(

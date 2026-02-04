@@ -1,5 +1,5 @@
 import { ELO_CONSTANTS } from "@/lib/shared/constants";
-import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 
 import { db } from "./index";
 import type { DBOrTx } from "./index";
@@ -9,7 +9,6 @@ import {
   type NewEloHistory,
   type NewEloRating,
   eloHistory,
-  eloHistoryColumns,
   eloRating,
   eloRatingColumns,
   placeholderMember,
@@ -227,4 +226,50 @@ export async function getParticipantEloRank(
     );
 
   return result?.rank ?? null;
+}
+
+export async function getEloRatingsByPlaceholder(
+  placeholderId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<EloRating[]> {
+  return await dbOrTx
+    .select()
+    .from(eloRating)
+    .where(eq(eloRating.placeholderMemberId, placeholderId));
+}
+
+export async function migrateEloRatingToUser(
+  eloRatingId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<EloRating> {
+  const [updated] = await dbOrTx
+    .update(eloRating)
+    .set({
+      userId,
+      placeholderMemberId: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(eloRating.id, eloRatingId))
+    .returning();
+
+  return updated;
+}
+
+export async function updateEloHistoryRatingId(
+  oldRatingId: string,
+  newRatingId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eloHistory)
+    .set({ eloRatingId: newRatingId })
+    .where(eq(eloHistory.eloRatingId, oldRatingId));
+}
+
+export async function deleteEloRating(
+  eloRatingId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx.delete(eloRating).where(eq(eloRating.id, eloRatingId));
 }

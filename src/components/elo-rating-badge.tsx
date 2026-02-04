@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { ELO_CONSTANTS } from "@/lib/shared/constants";
 import { cn } from "@/lib/shared/utils";
 
 interface EloRatingBadgeProps {

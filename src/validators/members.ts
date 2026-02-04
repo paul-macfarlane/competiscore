@@ -34,6 +34,7 @@ export type CreatePlaceholderFormValues = z.infer<
 export const inviteUserSchema = z.object({
   inviteeUserId: z.string().min(1, "User is required"),
   role: memberRoleSchema,
+  placeholderId: uuidSchema.optional(),
 });
 
 export type InviteUserFormValues = z.infer<typeof inviteUserSchema>;
@@ -42,6 +43,7 @@ export const generateInviteLinkSchema = z.object({
   role: memberRoleSchema,
   expiresInDays: z.number().int().min(1).max(30).optional(),
   maxUses: z.number().int().min(1).max(100).optional(),
+  placeholderId: uuidSchema.optional(),
 });
 
 export type GenerateInviteLinkFormValues = z.infer<

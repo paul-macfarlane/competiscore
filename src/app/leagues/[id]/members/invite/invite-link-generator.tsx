@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PlaceholderMember } from "@/db/schema";
 import { LeagueMemberRole } from "@/lib/shared/constants";
 import { ROLE_LABELS } from "@/lib/shared/roles";
 import { Check, Copy, Link, Loader2 } from "lucide-react";
@@ -20,19 +21,24 @@ import { generateInviteLinkAction } from "./actions";
 interface InviteLinkGeneratorProps {
   leagueId: string;
   availableRoles: LeagueMemberRole[];
+  placeholders: PlaceholderMember[];
 }
 
 export function InviteLinkGenerator({
   leagueId,
   availableRoles,
+  placeholders,
 }: InviteLinkGeneratorProps) {
   const [role, setRole] = useState<LeagueMemberRole>(LeagueMemberRole.MEMBER);
   const [expiresInDays, setExpiresInDays] = useState<string>("7");
   const [maxUses, setMaxUses] = useState<string>("");
+  const [placeholderId, setPlaceholderId] = useState<string>("none");
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const hasPlaceholder = placeholderId !== "none";
 
   const handleGenerate = () => {
     setError(null);
@@ -42,7 +48,8 @@ export function InviteLinkGenerator({
         leagueId,
         role,
         expiresInDays: expiresInDays ? parseInt(expiresInDays) : undefined,
-        maxUses: maxUses ? parseInt(maxUses) : undefined,
+        maxUses: hasPlaceholder ? 1 : maxUses ? parseInt(maxUses) : undefined,
+        placeholderId: placeholderId !== "none" ? placeholderId : undefined,
       });
       if (result.error) {
         setError(result.error);
@@ -109,11 +116,42 @@ export function InviteLinkGenerator({
             min="1"
             max="100"
             placeholder="Unlimited"
-            value={maxUses}
+            value={hasPlaceholder ? "1" : maxUses}
             onChange={(e) => setMaxUses(e.target.value)}
+            disabled={hasPlaceholder}
           />
+          {hasPlaceholder && (
+            <p className="text-muted-foreground text-xs">
+              Max uses is locked to 1 when a placeholder is selected
+            </p>
+          )}
         </div>
       </div>
+
+      {placeholders.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="link-placeholder">
+            Link to Placeholder (optional)
+          </Label>
+          <Select value={placeholderId} onValueChange={setPlaceholderId}>
+            <SelectTrigger id="link-placeholder">
+              <SelectValue placeholder="No placeholder" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No placeholder</SelectItem>
+              {placeholders.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.displayName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-muted-foreground text-xs">
+            If selected, anyone who uses this link will inherit this
+            placeholder&apos;s match history and stats.
+          </p>
+        </div>
+      )}
 
       <Button onClick={handleGenerate} disabled={isPending} className="w-full">
         {isPending ? (

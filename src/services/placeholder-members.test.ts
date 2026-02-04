@@ -1,3 +1,5 @@
+import * as dbEloRatings from "@/db/elo-ratings";
+import { db } from "@/db/index";
 import * as dbLeagueMembers from "@/db/league-members";
 import * as dbPlaceholderMembers from "@/db/placeholder-members";
 import { LeagueMemberRole } from "@/lib/shared/constants";
@@ -8,6 +10,7 @@ import {
   deletePlaceholder,
   getPlaceholders,
   getRetiredPlaceholders,
+  linkPlaceholderToUser,
   restorePlaceholder,
   retirePlaceholder,
   updatePlaceholder,
@@ -16,6 +19,15 @@ import { TEST_IDS } from "./test-helpers";
 
 vi.mock("@/db/placeholder-members");
 vi.mock("@/db/league-members");
+vi.mock("@/db/elo-ratings");
+vi.mock("@/db/invitations");
+vi.mock("@/db/index", async () => {
+  const actual = await vi.importActual("@/db/index");
+  return {
+    ...actual,
+    withTransaction: vi.fn((fn) => fn(db)),
+  };
+});
 
 const mockLeagueMember = {
   id: TEST_IDS.MEMBER_ID,
@@ -604,6 +616,208 @@ describe("placeholder-members service", () => {
       });
 
       expect(result.error).toBe("Failed to delete placeholder member");
+    });
+  });
+
+  describe("linkPlaceholderToUser", () => {
+    const mockEloRating = {
+      id: "elo-rating-id",
+      gameTypeId: "game-type-id",
+      leagueId: TEST_IDS.LEAGUE_ID,
+      userId: null,
+      teamId: null,
+      placeholderMemberId: TEST_IDS.PLACEHOLDER_ID,
+      rating: 1250,
+      matchesPlayed: 5,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it("returns error when placeholder not found", async () => {
+      vi.mocked(
+        dbPlaceholderMembers.getPlaceholderMemberById,
+      ).mockResolvedValue(undefined);
+
+      const result = await linkPlaceholderToUser(
+        TEST_IDS.PLACEHOLDER_ID,
+        TEST_IDS.USER_ID,
+        TEST_IDS.LEAGUE_ID,
+        db,
+      );
+
+      expect(result.error).toBe("Placeholder member not found");
+    });
+
+    it("returns error when placeholder does not belong to league", async () => {
+      vi.mocked(
+        dbPlaceholderMembers.getPlaceholderMemberById,
+      ).mockResolvedValue({
+        ...mockPlaceholder,
+        leagueId: "different-league-id",
+      });
+
+      const result = await linkPlaceholderToUser(
+        TEST_IDS.PLACEHOLDER_ID,
+        TEST_IDS.USER_ID,
+        TEST_IDS.LEAGUE_ID,
+        db,
+      );
+
+      expect(result.error).toBe("Placeholder does not belong to this league");
+    });
+
+    it("returns error when placeholder is already linked", async () => {
+      vi.mocked(
+        dbPlaceholderMembers.getPlaceholderMemberById,
+      ).mockResolvedValue({
+        ...mockPlaceholder,
+        linkedUserId: "existing-user-id",
+      });
+
+      const result = await linkPlaceholderToUser(
+        TEST_IDS.PLACEHOLDER_ID,
+        TEST_IDS.USER_ID,
+        TEST_IDS.LEAGUE_ID,
+        db,
+      );
+
+      expect(result.error).toBe("Placeholder is already linked to a user");
+    });
+
+    it("successfully links placeholder and migrates all data when user has no ELO ratings", async () => {
+      vi.mocked(
+        dbPlaceholderMembers.getPlaceholderMemberById,
+      ).mockResolvedValue(mockPlaceholder);
+      vi.mocked(
+        dbPlaceholderMembers.migrateMatchParticipantsToUser,
+      ).mockResolvedValue();
+      vi.mocked(
+        dbPlaceholderMembers.migrateTeamMembersToUser,
+      ).mockResolvedValue();
+      vi.mocked(
+        dbPlaceholderMembers.migrateHighScoreEntriesToUser,
+      ).mockResolvedValue();
+      vi.mocked(dbEloRatings.getEloRatingsByPlaceholder).mockResolvedValue([
+        mockEloRating,
+      ]);
+      vi.mocked(dbEloRatings.getEloRatingByParticipant).mockResolvedValue(
+        undefined,
+      );
+      vi.mocked(dbEloRatings.migrateEloRatingToUser).mockResolvedValue({
+        ...mockEloRating,
+        userId: TEST_IDS.USER_ID,
+        placeholderMemberId: null,
+      });
+      vi.mocked(dbPlaceholderMembers.updatePlaceholderMember).mockResolvedValue(
+        {
+          ...mockPlaceholder,
+          linkedUserId: TEST_IDS.USER_ID,
+        },
+      );
+
+      const result = await linkPlaceholderToUser(
+        TEST_IDS.PLACEHOLDER_ID,
+        TEST_IDS.USER_ID,
+        TEST_IDS.LEAGUE_ID,
+        db,
+      );
+
+      expect(result.data).toEqual({ linked: true });
+    });
+
+    it("successfully links placeholder and merges ELO history when user has existing ratings", async () => {
+      const existingUserRating = {
+        ...mockEloRating,
+        id: "existing-user-rating-id",
+        userId: TEST_IDS.USER_ID,
+        placeholderMemberId: null,
+        rating: 1300,
+        matchesPlayed: 10,
+      };
+
+      vi.mocked(
+        dbPlaceholderMembers.getPlaceholderMemberById,
+      ).mockResolvedValue(mockPlaceholder);
+      vi.mocked(
+        dbPlaceholderMembers.migrateMatchParticipantsToUser,
+      ).mockResolvedValue();
+      vi.mocked(
+        dbPlaceholderMembers.migrateTeamMembersToUser,
+      ).mockResolvedValue();
+      vi.mocked(
+        dbPlaceholderMembers.migrateHighScoreEntriesToUser,
+      ).mockResolvedValue();
+      vi.mocked(dbEloRatings.getEloRatingsByPlaceholder).mockResolvedValue([
+        mockEloRating,
+      ]);
+      vi.mocked(dbEloRatings.getEloRatingByParticipant).mockResolvedValue(
+        existingUserRating,
+      );
+      vi.mocked(dbEloRatings.updateEloHistoryRatingId).mockResolvedValue();
+      vi.mocked(dbEloRatings.deleteEloRating).mockResolvedValue();
+      vi.mocked(dbPlaceholderMembers.updatePlaceholderMember).mockResolvedValue(
+        {
+          ...mockPlaceholder,
+          linkedUserId: TEST_IDS.USER_ID,
+        },
+      );
+
+      const result = await linkPlaceholderToUser(
+        TEST_IDS.PLACEHOLDER_ID,
+        TEST_IDS.USER_ID,
+        TEST_IDS.LEAGUE_ID,
+        db,
+      );
+
+      expect(result.data).toEqual({ linked: true });
+    });
+
+    it("successfully links placeholder with multiple ELO ratings", async () => {
+      const mockEloRating2 = {
+        ...mockEloRating,
+        id: "elo-rating-id-2",
+        gameTypeId: "game-type-id-2",
+      };
+
+      vi.mocked(
+        dbPlaceholderMembers.getPlaceholderMemberById,
+      ).mockResolvedValue(mockPlaceholder);
+      vi.mocked(
+        dbPlaceholderMembers.migrateMatchParticipantsToUser,
+      ).mockResolvedValue();
+      vi.mocked(
+        dbPlaceholderMembers.migrateTeamMembersToUser,
+      ).mockResolvedValue();
+      vi.mocked(
+        dbPlaceholderMembers.migrateHighScoreEntriesToUser,
+      ).mockResolvedValue();
+      vi.mocked(dbEloRatings.getEloRatingsByPlaceholder).mockResolvedValue([
+        mockEloRating,
+        mockEloRating2,
+      ]);
+      vi.mocked(dbEloRatings.getEloRatingByParticipant).mockResolvedValue(
+        undefined,
+      );
+      vi.mocked(dbEloRatings.migrateEloRatingToUser).mockResolvedValue({
+        ...mockEloRating,
+        userId: TEST_IDS.USER_ID,
+        placeholderMemberId: null,
+      });
+      vi.mocked(dbPlaceholderMembers.updatePlaceholderMember).mockResolvedValue(
+        {
+          ...mockPlaceholder,
+          linkedUserId: TEST_IDS.USER_ID,
+        },
+      );
+
+      const result = await linkPlaceholderToUser(
+        TEST_IDS.PLACEHOLDER_ID,
+        TEST_IDS.USER_ID,
+        TEST_IDS.LEAGUE_ID,
+        db,
+      );
+
+      expect(result.data).toEqual({ linked: true });
     });
   });
 });

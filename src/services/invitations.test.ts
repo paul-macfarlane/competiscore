@@ -36,6 +36,7 @@ vi.mock("@/db/invitations", () => ({
   incrementInvitationUseCount: vi.fn(),
   deleteInvitation: vi.fn(),
   checkExistingPendingInvitation: vi.fn(),
+  checkExistingPendingInvitationForPlaceholder: vi.fn(),
   acceptAllPendingInvitationsForLeague: vi.fn(),
 }));
 
@@ -50,6 +51,22 @@ vi.mock("@/db/leagues", () => ({
 
 vi.mock("@/db/users", () => ({
   getUserById: vi.fn(),
+}));
+
+vi.mock("@/db/placeholder-members", () => ({
+  getPlaceholderMemberById: vi.fn(() => Promise.resolve(undefined)),
+  migrateMatchParticipantsToUser: vi.fn(() => Promise.resolve()),
+  migrateTeamMembersToUser: vi.fn(() => Promise.resolve()),
+  migrateHighScoreEntriesToUser: vi.fn(() => Promise.resolve()),
+  updatePlaceholderMember: vi.fn(() => Promise.resolve(undefined)),
+}));
+
+vi.mock("@/db/elo-ratings", () => ({
+  getEloRatingsByPlaceholder: vi.fn(() => Promise.resolve([])),
+  getEloRatingByParticipant: vi.fn(),
+  migrateEloRatingToUser: vi.fn(),
+  updateEloHistoryRatingId: vi.fn(),
+  deleteEloRating: vi.fn(),
 }));
 
 vi.mock("@/db/index", () => ({
@@ -95,6 +112,7 @@ const mockInvitation = {
   useCount: 0,
   createdAt: new Date(),
   expiresAt: null,
+  placeholderId: null,
 };
 
 const mockInvitationWithDetails = {
@@ -111,6 +129,7 @@ const mockInvitationWithDetails = {
     username: "inviter",
   },
   invitee: null,
+  placeholder: null,
 };
 
 describe("invitations service", () => {
@@ -283,6 +302,51 @@ describe("invitations service", () => {
         leagueId: TEST_IDS.LEAGUE_ID,
       });
     });
+
+    it("returns error when placeholder already has pending invitation", async () => {
+      vi.mocked(dbLeagueMembers.getLeagueMember)
+        .mockResolvedValueOnce(mockMember)
+        .mockResolvedValueOnce(undefined);
+      vi.mocked(dbUsers.getUserById).mockResolvedValue({
+        id: TEST_IDS.USER_ID_2,
+        name: "Invitee",
+        email: "invitee@test.com",
+        emailVerified: true,
+        username: "invitee",
+        bio: null,
+        image: null,
+        isAdmin: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+      vi.mocked(dbInvitations.checkExistingPendingInvitation).mockResolvedValue(
+        undefined,
+      );
+      vi.mocked(limits.canLeagueAddMember).mockResolvedValue({
+        allowed: true,
+        limitInfo: {
+          current: 5,
+          max: 20,
+          isAtLimit: false,
+          isNearLimit: false,
+        },
+      });
+      vi.mocked(
+        dbInvitations.checkExistingPendingInvitationForPlaceholder,
+      ).mockResolvedValue(mockInvitation);
+
+      const result = await inviteUser(TEST_IDS.USER_ID, {
+        leagueId: TEST_IDS.LEAGUE_ID,
+        inviteeUserId: TEST_IDS.USER_ID_2,
+        role: LeagueMemberRole.MEMBER,
+        placeholderId: TEST_IDS.PLACEHOLDER_ID,
+      });
+
+      expect(result.error).toBe(
+        "This placeholder already has a pending invitation. Cancel the existing invitation first.",
+      );
+    });
   });
 
   describe("generateInviteLink", () => {
@@ -311,6 +375,75 @@ describe("invitations service", () => {
         leagueId: TEST_IDS.LEAGUE_ID,
         role: LeagueMemberRole.MEMBER,
         expiresInDays: 7,
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data?.token).toBeDefined();
+    });
+
+    it("returns error when placeholder specified without maxUses = 1", async () => {
+      vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
+
+      const result = await generateInviteLink(TEST_IDS.USER_ID, {
+        leagueId: TEST_IDS.LEAGUE_ID,
+        role: LeagueMemberRole.MEMBER,
+        placeholderId: TEST_IDS.PLACEHOLDER_ID,
+        maxUses: 5,
+      });
+
+      expect(result.error).toBe(
+        "Invite links with a placeholder must have a max use of exactly 1",
+      );
+    });
+
+    it("returns error when placeholder specified without maxUses", async () => {
+      vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
+
+      const result = await generateInviteLink(TEST_IDS.USER_ID, {
+        leagueId: TEST_IDS.LEAGUE_ID,
+        role: LeagueMemberRole.MEMBER,
+        placeholderId: TEST_IDS.PLACEHOLDER_ID,
+      });
+
+      expect(result.error).toBe(
+        "Invite links with a placeholder must have a max use of exactly 1",
+      );
+    });
+
+    it("returns error when placeholder already has pending invitation", async () => {
+      vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
+      vi.mocked(
+        dbInvitations.checkExistingPendingInvitationForPlaceholder,
+      ).mockResolvedValue(mockInvitation);
+
+      const result = await generateInviteLink(TEST_IDS.USER_ID, {
+        leagueId: TEST_IDS.LEAGUE_ID,
+        role: LeagueMemberRole.MEMBER,
+        placeholderId: TEST_IDS.PLACEHOLDER_ID,
+        maxUses: 1,
+      });
+
+      expect(result.error).toBe(
+        "This placeholder already has a pending invitation. Cancel the existing invitation first.",
+      );
+    });
+
+    it("successfully generates invite link with placeholder", async () => {
+      vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
+      vi.mocked(
+        dbInvitations.checkExistingPendingInvitationForPlaceholder,
+      ).mockResolvedValue(undefined);
+      vi.mocked(dbInvitations.createInvitation).mockResolvedValue({
+        ...mockInvitation,
+        token: "test-token",
+        placeholderId: TEST_IDS.PLACEHOLDER_ID,
+      });
+
+      const result = await generateInviteLink(TEST_IDS.USER_ID, {
+        leagueId: TEST_IDS.LEAGUE_ID,
+        role: LeagueMemberRole.MEMBER,
+        placeholderId: TEST_IDS.PLACEHOLDER_ID,
+        maxUses: 1,
       });
 
       expect(result.data).toBeDefined();
