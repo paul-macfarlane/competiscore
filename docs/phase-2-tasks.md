@@ -232,7 +232,7 @@ This document tracks all tasks for Phase 2 of Competiscore development, focusing
 
 ## 6. Integration & Polish
 
-**Status: 🔄 In Progress (60%)**
+**Status: ✅ Complete**
 
 ### Transaction Safety ✅
 
@@ -260,27 +260,27 @@ This document tracks all tasks for Phase 2 of Competiscore development, focusing
 - [x] Type-safe participant handling in ELO calculations
 - [x] Validation for FFA participants (all must have ranks)
 
-### Placeholder Integration
+### Placeholder Integration ✅
 
-- [ ] Link placeholder to real user on join (migrate match history)
-- [ ] Migrate ELO ratings when placeholder is linked
+- [x] Link placeholder to real user on join (migrate match history)
+- [x] Migrate ELO ratings when placeholder is linked
 
-### Discovery
+### Discovery ✅
 
-- [ ] Update public league search to support filtering by game type
+- [x] Update public league search to support filtering by game type
 
-### Usage Limits
+### Usage Limits ✅
 
 - [x] Game type limit enforcement (20 max)
 
-### Polish
+### Polish ✅
 
 - [x] Loading states for standings pages
 - [x] SEO metadata for standings pages
 - [x] Error handling for ELO calculations
-- [ ] Loading states for match recording
-- [ ] SEO metadata for match recording pages
-- [ ] Comprehensive error messages for all edge cases
+- [x] Loading states for match recording
+- [x] SEO metadata for match recording pages
+- [ ] Comprehensive error messages for all edge cases (deferred to future phases)
 
 ---
 
@@ -322,3 +322,30 @@ Fixed overflow issues on game type detail page:
 - **Validation**: Added FFA rank validation before ELO calculation
 - **Error Handling**: Comprehensive error messages and graceful failures
 - **Build Status**: TypeScript compilation passing, no errors
+
+### Placeholder Integration (Complete) 🔗
+
+Implemented full placeholder member linking when users join leagues:
+
+- **Database Functions**: Added migration functions for match participants, team members, and high scores
+- **ELO Migration**: Smart ELO rating transfer - transfers if user has none, merges history if user has existing ratings
+- **Service Integration**: Updated `addUserToLeague` to accept optional `placeholderId` parameter
+- **Transaction Safety**: All migrations happen atomically within database transactions
+- **Data Integrity**: Maintains all historical data while transferring ownership to the real user
+
+### Discovery Improvements (Complete) 🔍
+
+Enhanced public league search with game type filtering:
+
+- **Database Layer**: Updated search query to join with game types and filter by name
+- **Service Layer**: Extended search schema to accept optional game type filter
+- **UI Enhancement**: Added second input field for filtering by game type
+- **User Experience**: Debounced search for smooth performance
+
+### Polish & UX (Complete) ✨
+
+Final polish touches for match recording and navigation:
+
+- **Loading States**: Added loading.tsx files for all 3 match recording routes
+- **SEO Metadata**: Implemented generateMetadata for match recording and challenge pages
+- **User Guidance**: Proper loading skeletons improve perceived performance

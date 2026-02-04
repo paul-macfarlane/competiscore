@@ -5,6 +5,7 @@ import { DBOrTx, db } from "./index";
 import {
   League,
   NewLeague,
+  gameType,
   league,
   leagueColumns,
   leagueMember,
@@ -77,31 +78,82 @@ export async function deleteLeague(
 
 export async function searchPublicLeagues(
   query: string,
+  gameTypeFilter?: string,
   dbOrTx: DBOrTx = db,
 ): Promise<Array<League & { memberCount: number }>> {
-  const searchPattern = `%${query}%`;
-
-  const results = await dbOrTx
+  let queryBuilder = dbOrTx
     .select({
       ...leagueColumns,
       memberCount: count(leagueMember.id),
     })
     .from(league)
-    .leftJoin(leagueMember, eq(league.id, leagueMember.leagueId))
-    .where(
+    .leftJoin(leagueMember, eq(league.id, leagueMember.leagueId));
+
+  if (gameTypeFilter) {
+    queryBuilder = queryBuilder.innerJoin(
+      gameType,
       and(
-        eq(league.visibility, LeagueVisibility.PUBLIC),
-        eq(league.isArchived, false),
-        or(
-          ilike(league.name, searchPattern),
-          ilike(league.description, searchPattern),
-        ),
+        eq(league.id, gameType.leagueId),
+        eq(gameType.isArchived, false),
+        ilike(gameType.name, `%${gameTypeFilter}%`),
       ),
-    )
+    );
+  }
+
+  const whereConditions = [
+    eq(league.visibility, LeagueVisibility.PUBLIC),
+    eq(league.isArchived, false),
+  ];
+
+  if (query && query.length > 0) {
+    const searchPattern = `%${query}%`;
+    whereConditions.push(
+      or(
+        ilike(league.name, searchPattern),
+        ilike(league.description, searchPattern),
+      )!,
+    );
+  }
+
+  const results = await queryBuilder
+    .where(and(...whereConditions))
     .groupBy(league.id)
     .limit(20);
 
   return results;
+}
+
+export async function getLeagueGameTypesForSearch(
+  leagueId: string,
+  gameTypeFilter?: string,
+  dbOrTx: DBOrTx = db,
+): Promise<Array<{ id: string; name: string; isMatch: boolean }>> {
+  const allGameTypes = await dbOrTx
+    .select({
+      id: gameType.id,
+      name: gameType.name,
+    })
+    .from(gameType)
+    .where(and(eq(gameType.leagueId, leagueId), eq(gameType.isArchived, false)))
+    .limit(10);
+
+  if (!gameTypeFilter) {
+    return allGameTypes.slice(0, 3).map((gt) => ({ ...gt, isMatch: false }));
+  }
+
+  const filterLower = gameTypeFilter.toLowerCase();
+  const matching: Array<{ id: string; name: string; isMatch: boolean }> = [];
+  const nonMatching: Array<{ id: string; name: string; isMatch: boolean }> = [];
+
+  for (const gt of allGameTypes) {
+    if (gt.name.toLowerCase().includes(filterLower)) {
+      matching.push({ ...gt, isMatch: true });
+    } else {
+      nonMatching.push({ ...gt, isMatch: false });
+    }
+  }
+
+  return [...matching, ...nonMatching].slice(0, 3);
 }
 
 export async function getLeagueWithMemberCount(

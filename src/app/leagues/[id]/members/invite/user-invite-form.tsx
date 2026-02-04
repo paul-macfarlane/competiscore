@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PlaceholderMember } from "@/db/schema";
 import { UserSearchResult } from "@/db/users";
 import { getInitials } from "@/lib/client/utils";
 import { LeagueMemberRole } from "@/lib/shared/constants";
@@ -24,11 +25,13 @@ import { inviteUserAction, searchUsersAction } from "./actions";
 interface UserInviteFormProps {
   leagueId: string;
   availableRoles: LeagueMemberRole[];
+  placeholders: PlaceholderMember[];
 }
 
 export function UserInviteForm({
   leagueId,
   availableRoles,
+  placeholders,
 }: UserInviteFormProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
@@ -36,6 +39,7 @@ export function UserInviteForm({
     null,
   );
   const [role, setRole] = useState<LeagueMemberRole>(LeagueMemberRole.MEMBER);
+  const [placeholderId, setPlaceholderId] = useState<string>("none");
   const [isSearching, setIsSearching] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -88,12 +92,14 @@ export function UserInviteForm({
         leagueId,
         inviteeUserId: selectedUser.id,
         role,
+        placeholderId: placeholderId !== "none" ? placeholderId : undefined,
       });
       if (result.error) {
         setError(result.error);
       } else {
         toast.success(`Invitation sent to ${selectedUser.name}`);
         setSelectedUser(null);
+        setPlaceholderId("none");
       }
     });
   };
@@ -191,6 +197,29 @@ export function UserInviteForm({
           </SelectContent>
         </Select>
       </div>
+
+      {placeholders.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="placeholder">Link to Placeholder (optional)</Label>
+          <Select value={placeholderId} onValueChange={setPlaceholderId}>
+            <SelectTrigger>
+              <SelectValue placeholder="No placeholder" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No placeholder</SelectItem>
+              {placeholders.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.displayName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-muted-foreground text-xs">
+            If selected, the user will inherit this placeholder&apos;s match
+            history and stats when they accept the invitation.
+          </p>
+        </div>
+      )}
 
       <Button
         onClick={handleInvite}

@@ -45,11 +45,22 @@ export function PendingInvitationsList({
     );
   }
 
+  const hasPlaceholderInvites = invitations.some((inv) => inv.placeholder);
+
   return (
     <div className="space-y-3">
       {error && (
         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      )}
+      {hasPlaceholderInvites && (
+        <div className="rounded-md bg-muted p-3 text-sm">
+          <p className="text-muted-foreground">
+            <strong>Note:</strong> Placeholders with pending invitations cannot
+            be selected for new invites. Cancel an existing invitation to make
+            the placeholder available again.
+          </p>
         </div>
       )}
       {invitations.map((invitation) => {
@@ -87,11 +98,15 @@ export function PendingInvitationsList({
                     {invitation.useCount} uses
                     {invitation.maxUses && ` / ${invitation.maxUses} max`}
                     {expiresAt && ` • Expires ${expiresAt}`}
+                    {invitation.placeholder &&
+                      ` • For ${invitation.placeholder.displayName}`}
                   </>
                 ) : (
                   <>
                     @{invitation.invitee?.username ?? "unknown"}
                     {expiresAt && ` • Expires ${expiresAt}`}
+                    {invitation.placeholder &&
+                      ` • For ${invitation.placeholder.displayName}`}
                   </>
                 )}
               </div>

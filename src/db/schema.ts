@@ -214,6 +214,12 @@ export const leagueInvitation = pgTable(
       .references(() => user.id),
     inviteeUserId: text("invitee_user_id").references(() => user.id),
     inviteeEmail: text("invitee_email"),
+    placeholderId: text("placeholder_id").references(
+      () => placeholderMember.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     role: leagueMemberRole("role").notNull().default("member"),
     status: invitationStatus("status").notNull().default("pending"),
     token: text("token").unique(),
@@ -226,6 +232,7 @@ export const leagueInvitation = pgTable(
     index("league_invitation_league_idx").on(table.leagueId),
     index("league_invitation_invitee_idx").on(table.inviteeUserId),
     index("league_invitation_token_idx").on(table.token),
+    index("league_invitation_placeholder_idx").on(table.placeholderId),
   ],
 );
 

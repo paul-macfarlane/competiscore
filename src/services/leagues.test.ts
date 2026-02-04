@@ -30,6 +30,12 @@ vi.mock("@/db/leagues", () => ({
   deleteLeague: vi.fn(),
   searchPublicLeagues: vi.fn(),
   getLeagueWithMemberCount: vi.fn(),
+  getLeagueGameTypesForSearch: vi.fn(() =>
+    Promise.resolve([
+      { id: "gt1", name: "Ping Pong", isMatch: false },
+      { id: "gt2", name: "Pool", isMatch: false },
+    ]),
+  ),
 }));
 
 vi.mock("@/db/league-members", () => ({
@@ -296,21 +302,116 @@ describe("leagues service", () => {
   });
 
   describe("searchPublicLeagues", () => {
-    it("returns validation error for empty query", async () => {
-      const result = await searchPublicLeagues("", TEST_IDS.USER_ID);
+    const mockGameTypes = [
+      { id: "gt1", name: "Ping Pong", isMatch: false },
+      { id: "gt2", name: "Pool", isMatch: false },
+    ];
+
+    it("returns validation error when both fields are empty", async () => {
+      const result = await searchPublicLeagues({}, TEST_IDS.USER_ID);
 
       expect(result.error).toBe("Invalid search query");
     });
 
-    it("returns search results with membership status", async () => {
+    it("returns validation error for invalid input type", async () => {
+      const result = await searchPublicLeagues("invalid", TEST_IDS.USER_ID);
+
+      expect(result.error).toBe("Invalid search query");
+    });
+
+    it("returns search results with membership status and game types", async () => {
       const mockResults = [{ ...mockLeague, memberCount: 5 }];
       vi.mocked(dbLeagues.searchPublicLeagues).mockResolvedValue(mockResults);
       vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(undefined);
+      vi.mocked(dbLeagues.getLeagueGameTypesForSearch).mockResolvedValue(
+        mockGameTypes,
+      );
 
-      const result = await searchPublicLeagues("test", TEST_IDS.USER_ID);
+      const result = await searchPublicLeagues(
+        { query: "test" },
+        TEST_IDS.USER_ID,
+      );
 
       expect(result.data).toEqual([
-        { ...mockLeague, memberCount: 5, isMember: false },
+        {
+          ...mockLeague,
+          memberCount: 5,
+          isMember: false,
+          gameTypes: mockGameTypes,
+        },
+      ]);
+    });
+
+    it("returns search results filtered by game type only", async () => {
+      const mockResults = [{ ...mockLeague, memberCount: 5 }];
+      const matchingGameTypes = [
+        { id: "gt1", name: "Ping Pong", isMatch: true },
+        { id: "gt2", name: "Pool", isMatch: false },
+      ];
+      vi.mocked(dbLeagues.searchPublicLeagues).mockResolvedValue(mockResults);
+      vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(undefined);
+      vi.mocked(dbLeagues.getLeagueGameTypesForSearch).mockResolvedValue(
+        matchingGameTypes,
+      );
+
+      const result = await searchPublicLeagues(
+        { gameType: "Ping Pong" },
+        TEST_IDS.USER_ID,
+      );
+
+      expect(result.data).toEqual([
+        {
+          ...mockLeague,
+          memberCount: 5,
+          isMember: false,
+          gameTypes: matchingGameTypes,
+        },
+      ]);
+    });
+
+    it("returns search results filtered by both query and game type", async () => {
+      const mockResults = [{ ...mockLeague, memberCount: 5 }];
+      vi.mocked(dbLeagues.searchPublicLeagues).mockResolvedValue(mockResults);
+      vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(undefined);
+      vi.mocked(dbLeagues.getLeagueGameTypesForSearch).mockResolvedValue(
+        mockGameTypes,
+      );
+
+      const result = await searchPublicLeagues(
+        { query: "test", gameType: "Ping Pong" },
+        TEST_IDS.USER_ID,
+      );
+
+      expect(result.data).toEqual([
+        {
+          ...mockLeague,
+          memberCount: 5,
+          isMember: false,
+          gameTypes: mockGameTypes,
+        },
+      ]);
+    });
+
+    it("marks user as member when they belong to the league", async () => {
+      const mockResults = [{ ...mockLeague, memberCount: 5 }];
+      vi.mocked(dbLeagues.searchPublicLeagues).mockResolvedValue(mockResults);
+      vi.mocked(dbLeagueMembers.getLeagueMember).mockResolvedValue(mockMember);
+      vi.mocked(dbLeagues.getLeagueGameTypesForSearch).mockResolvedValue(
+        mockGameTypes,
+      );
+
+      const result = await searchPublicLeagues(
+        { query: "test" },
+        TEST_IDS.USER_ID,
+      );
+
+      expect(result.data).toEqual([
+        {
+          ...mockLeague,
+          memberCount: 5,
+          isMember: true,
+          gameTypes: mockGameTypes,
+        },
       ]);
     });
   });

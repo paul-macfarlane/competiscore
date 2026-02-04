@@ -14,6 +14,7 @@ import {
 import { getGameType } from "@/services/game-types";
 import { getLeagueWithRole } from "@/services/leagues";
 import { isSuspended } from "@/services/shared";
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
@@ -24,6 +25,38 @@ import { SubmitHighScoreForm } from "./submit-high-score-form";
 type PageProps = {
   params: Promise<{ id: string; gameTypeId: string }>;
 };
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { gameTypeId } = await params;
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session) {
+    return {
+      title: "Record Match",
+    };
+  }
+
+  const gameTypeResult = await getGameType(session.user.id, gameTypeId);
+  if (gameTypeResult.error || !gameTypeResult.data) {
+    return {
+      title: "Game Type Not Found",
+    };
+  }
+
+  const gameType = gameTypeResult.data;
+  const action =
+    gameType.category === GameCategory.HIGH_SCORE
+      ? "Submit Score"
+      : "Record Match";
+
+  return {
+    title: `${action} - ${gameType.name}`,
+    description: `${action} for ${gameType.name}`,
+  };
+}
 
 export type ParticipantOption = {
   id: string;

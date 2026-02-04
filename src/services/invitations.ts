@@ -2,6 +2,7 @@ import { withTransaction } from "@/db/index";
 import {
   InvitationWithDetails,
   checkExistingPendingInvitation,
+  checkExistingPendingInvitationForPlaceholder,
   createInvitation as dbCreateInvitation,
   getPendingInvitationsForLeague as dbGetPendingInvitationsForLeague,
   getPendingInvitationsForUser as dbGetPendingInvitationsForUser,
@@ -78,7 +79,7 @@ export async function inviteUser(
     };
   }
 
-  const { leagueId, inviteeUserId, role } = parsed.data;
+  const { leagueId, inviteeUserId, role, placeholderId } = parsed.data;
 
   const validation = await validateInvitePermissions(inviterId, leagueId, role);
   if (validation.error) {
@@ -108,12 +109,24 @@ export async function inviteUser(
     return { error: leagueLimitCheck.message };
   }
 
+  if (placeholderId) {
+    const existingPlaceholderInvitation =
+      await checkExistingPendingInvitationForPlaceholder(placeholderId);
+    if (existingPlaceholderInvitation) {
+      return {
+        error:
+          "This placeholder already has a pending invitation. Cancel the existing invitation first.",
+      };
+    }
+  }
+
   const invitation = await dbCreateInvitation({
     leagueId,
     inviterId,
     inviteeUserId,
     role,
     status: InvitationStatus.PENDING,
+    placeholderId: placeholderId ?? null,
   });
 
   return {
@@ -139,11 +152,28 @@ export async function generateInviteLink(
     };
   }
 
-  const { leagueId, role, expiresInDays, maxUses } = parsed.data;
+  const { leagueId, role, expiresInDays, maxUses, placeholderId } = parsed.data;
+
+  if (placeholderId && (!maxUses || maxUses !== 1)) {
+    return {
+      error: "Invite links with a placeholder must have a max use of exactly 1",
+    };
+  }
 
   const validation = await validateInvitePermissions(inviterId, leagueId, role);
   if (validation.error) {
     return { error: validation.error };
+  }
+
+  if (placeholderId) {
+    const existingPlaceholderInvitation =
+      await checkExistingPendingInvitationForPlaceholder(placeholderId);
+    if (existingPlaceholderInvitation) {
+      return {
+        error:
+          "This placeholder already has a pending invitation. Cancel the existing invitation first.",
+      };
+    }
   }
 
   const token = crypto.randomUUID();
@@ -161,6 +191,7 @@ export async function generateInviteLink(
     token,
     maxUses: maxUses ?? null,
     expiresAt: expiresAt ?? null,
+    placeholderId: placeholderId ?? null,
   });
 
   return { data: { token, invitationId: invitation.id, leagueId } };
@@ -247,6 +278,7 @@ export async function acceptInvitation(
       userId,
       invitation.leagueId,
       invitation.role,
+      invitation.placeholderId ?? undefined,
       tx,
     );
     if (joinResult.error) {
@@ -347,6 +379,7 @@ export async function joinViaInviteLink(
       userId,
       invitation.leagueId,
       invitation.role,
+      invitation.placeholderId ?? undefined,
       tx,
     );
     if (joinResult.error) {

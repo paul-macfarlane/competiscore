@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getAvailablePlaceholderMembersForInvite } from "@/db/placeholder-members";
 import { auth } from "@/lib/server/auth";
 import { LeagueAction, canPerformAction } from "@/lib/shared/permissions";
 import { getAssignableRoles } from "@/lib/shared/roles";
@@ -92,6 +93,9 @@ async function InviteContent({
     LeagueAction.CREATE_PLACEHOLDERS,
   );
 
+  const availablePlaceholders =
+    await getAvailablePlaceholderMembersForInvite(leagueId);
+
   return (
     <div className="space-y-6">
       <Card>
@@ -103,7 +107,11 @@ async function InviteContent({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <UserInviteForm leagueId={leagueId} availableRoles={availableRoles} />
+          <UserInviteForm
+            leagueId={leagueId}
+            availableRoles={availableRoles}
+            placeholders={availablePlaceholders}
+          />
         </CardContent>
       </Card>
 
@@ -118,6 +126,7 @@ async function InviteContent({
           <InviteLinkGenerator
             leagueId={leagueId}
             availableRoles={availableRoles}
+            placeholders={availablePlaceholders}
           />
         </CardContent>
       </Card>

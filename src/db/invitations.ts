@@ -7,10 +7,12 @@ import {
   League,
   LeagueInvitation,
   NewLeagueInvitation,
+  PlaceholderMember,
   User,
   league,
   leagueInvitation,
   leagueInvitationColumns,
+  placeholderMember,
   user,
 } from "./schema";
 
@@ -20,6 +22,7 @@ export type InvitationWithDetails = LeagueInvitation & {
   league: Pick<League, "id" | "name" | "description" | "logo">;
   inviter: Pick<User, "id" | "name" | "username">;
   invitee: Pick<User, "id" | "name" | "username"> | null;
+  placeholder: Pick<PlaceholderMember, "id" | "displayName"> | null;
 };
 
 export async function createInvitation(
@@ -65,11 +68,19 @@ export async function getInvitationByIdWithDetails(
         name: inviteeUser.name,
         username: inviteeUser.username,
       },
+      placeholder: {
+        id: placeholderMember.id,
+        displayName: placeholderMember.displayName,
+      },
     })
     .from(leagueInvitation)
     .innerJoin(league, eq(leagueInvitation.leagueId, league.id))
     .innerJoin(user, eq(leagueInvitation.inviterId, user.id))
     .leftJoin(inviteeUser, eq(leagueInvitation.inviteeUserId, inviteeUser.id))
+    .leftJoin(
+      placeholderMember,
+      eq(leagueInvitation.placeholderId, placeholderMember.id),
+    )
     .where(eq(leagueInvitation.id, id))
     .limit(1);
 
@@ -111,11 +122,19 @@ export async function getInvitationByTokenWithDetails(
         name: inviteeUser.name,
         username: inviteeUser.username,
       },
+      placeholder: {
+        id: placeholderMember.id,
+        displayName: placeholderMember.displayName,
+      },
     })
     .from(leagueInvitation)
     .innerJoin(league, eq(leagueInvitation.leagueId, league.id))
     .innerJoin(user, eq(leagueInvitation.inviterId, user.id))
     .leftJoin(inviteeUser, eq(leagueInvitation.inviteeUserId, inviteeUser.id))
+    .leftJoin(
+      placeholderMember,
+      eq(leagueInvitation.placeholderId, placeholderMember.id),
+    )
     .where(eq(leagueInvitation.token, token))
     .limit(1);
 
@@ -147,11 +166,19 @@ export async function getPendingInvitationsForUser(
         name: inviteeUser.name,
         username: inviteeUser.username,
       },
+      placeholder: {
+        id: placeholderMember.id,
+        displayName: placeholderMember.displayName,
+      },
     })
     .from(leagueInvitation)
     .innerJoin(league, eq(leagueInvitation.leagueId, league.id))
     .innerJoin(user, eq(leagueInvitation.inviterId, user.id))
     .leftJoin(inviteeUser, eq(leagueInvitation.inviteeUserId, inviteeUser.id))
+    .leftJoin(
+      placeholderMember,
+      eq(leagueInvitation.placeholderId, placeholderMember.id),
+    )
     .where(
       and(
         eq(leagueInvitation.inviteeUserId, userId),
@@ -192,11 +219,19 @@ export async function getPendingInvitationsForLeague(
         name: inviteeUser.name,
         username: inviteeUser.username,
       },
+      placeholder: {
+        id: placeholderMember.id,
+        displayName: placeholderMember.displayName,
+      },
     })
     .from(leagueInvitation)
     .innerJoin(league, eq(leagueInvitation.leagueId, league.id))
     .innerJoin(user, eq(leagueInvitation.inviterId, user.id))
     .leftJoin(inviteeUser, eq(leagueInvitation.inviteeUserId, inviteeUser.id))
+    .leftJoin(
+      placeholderMember,
+      eq(leagueInvitation.placeholderId, placeholderMember.id),
+    )
     .where(
       and(
         eq(leagueInvitation.leagueId, leagueId),
@@ -276,6 +311,30 @@ export async function checkExistingPendingInvitation(
   return result[0];
 }
 
+export async function checkExistingPendingInvitationForPlaceholder(
+  placeholderId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<LeagueInvitation | undefined> {
+  const now = new Date();
+
+  const result = await dbOrTx
+    .select()
+    .from(leagueInvitation)
+    .where(
+      and(
+        eq(leagueInvitation.placeholderId, placeholderId),
+        eq(leagueInvitation.status, InvitationStatus.PENDING),
+        or(
+          isNull(leagueInvitation.expiresAt),
+          gt(leagueInvitation.expiresAt, now),
+        ),
+      ),
+    )
+    .limit(1);
+
+  return result[0];
+}
+
 export async function acceptAllPendingInvitationsForLeague(
   leagueId: string,
   userId: string,
@@ -288,6 +347,22 @@ export async function acceptAllPendingInvitationsForLeague(
       and(
         eq(leagueInvitation.leagueId, leagueId),
         eq(leagueInvitation.inviteeUserId, userId),
+        eq(leagueInvitation.status, InvitationStatus.PENDING),
+      ),
+    );
+  return result.rowCount ?? 0;
+}
+
+export async function cancelPendingInvitationsForPlaceholder(
+  placeholderId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<number> {
+  const result = await dbOrTx
+    .update(leagueInvitation)
+    .set({ status: InvitationStatus.DECLINED })
+    .where(
+      and(
+        eq(leagueInvitation.placeholderId, placeholderId),
         eq(leagueInvitation.status, InvitationStatus.PENDING),
       ),
     );

@@ -1,3 +1,12 @@
+import {
+  deleteEloRating,
+  getEloRatingByParticipant,
+  getEloRatingsByPlaceholder,
+  migrateEloRatingToUser,
+  updateEloHistoryRatingId,
+} from "@/db/elo-ratings";
+import { type DBOrTx, db, withTransaction } from "@/db/index";
+import { cancelPendingInvitationsForPlaceholder } from "@/db/invitations";
 import { getLeagueMember } from "@/db/league-members";
 import {
   createPlaceholderMember as dbCreatePlaceholderMember,
@@ -9,6 +18,9 @@ import {
   getPlaceholderMemberById,
   getRetiredPlaceholderMembersByLeague,
   hasPlaceholderActivity,
+  migrateHighScoreEntriesToUser,
+  migrateMatchParticipantsToUser,
+  migrateTeamMembersToUser,
 } from "@/db/placeholder-members";
 import { PlaceholderMember } from "@/db/schema";
 import { LeagueAction, canPerformAction } from "@/lib/shared/permissions";
@@ -263,4 +275,94 @@ export async function deletePlaceholder(
   }
 
   return { data: { deleted: true, leagueId } };
+}
+
+/**
+ * Migrates ELO ratings from a placeholder to a user.
+ * For each game type:
+ * - If user has NO existing rating, transfer placeholder's rating
+ * - If user HAS existing rating, merge history into user's rating and delete placeholder's rating
+ */
+async function migrateEloRatingsToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx,
+): Promise<void> {
+  const placeholderRatings = await getEloRatingsByPlaceholder(
+    placeholderId,
+    dbOrTx,
+  );
+
+  for (const placeholderRating of placeholderRatings) {
+    const existingUserRating = await getEloRatingByParticipant(
+      {
+        gameTypeId: placeholderRating.gameTypeId,
+        userId,
+      },
+      dbOrTx,
+    );
+
+    if (!existingUserRating) {
+      await migrateEloRatingToUser(placeholderRating.id, userId, dbOrTx);
+    } else {
+      await updateEloHistoryRatingId(
+        placeholderRating.id,
+        existingUserRating.id,
+        dbOrTx,
+      );
+      await deleteEloRating(placeholderRating.id, dbOrTx);
+    }
+  }
+}
+
+/**
+ * Links a placeholder member to a real user and migrates all their data.
+ * This is called when a user joins a league and needs to inherit a placeholder's history.
+ *
+ * Migrations performed:
+ * - Match participant records
+ * - Team member records
+ * - High score entries
+ * - ELO ratings (transferred if user has none, or history merged if user has existing ratings)
+ * - Sets linkedUserId on the placeholder
+ */
+export async function linkPlaceholderToUser(
+  placeholderId: string,
+  userId: string,
+  leagueId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<ServiceResult<{ linked: boolean }>> {
+  const placeholder = await getPlaceholderMemberById(placeholderId, dbOrTx);
+  if (!placeholder) {
+    return { error: "Placeholder member not found" };
+  }
+
+  if (placeholder.leagueId !== leagueId) {
+    return { error: "Placeholder does not belong to this league" };
+  }
+
+  if (placeholder.linkedUserId) {
+    return { error: "Placeholder is already linked to a user" };
+  }
+
+  const processLink = async (tx: DBOrTx) => {
+    await migrateMatchParticipantsToUser(placeholderId, userId, tx);
+    await migrateTeamMembersToUser(placeholderId, userId, tx);
+    await migrateHighScoreEntriesToUser(placeholderId, userId, tx);
+    await migrateEloRatingsToUser(placeholderId, userId, tx);
+    await dbUpdatePlaceholderMember(
+      placeholderId,
+      { linkedUserId: userId },
+      tx,
+    );
+    await cancelPendingInvitationsForPlaceholder(placeholderId, tx);
+    await dbRetirePlaceholderMember(placeholderId, tx);
+
+    return { data: { linked: true } };
+  };
+
+  if (dbOrTx === db) {
+    return withTransaction(processLink);
+  }
+  return processLink(dbOrTx);
 }

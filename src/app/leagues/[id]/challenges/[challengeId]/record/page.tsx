@@ -6,6 +6,7 @@ import { parseH2HConfig } from "@/lib/shared/game-config-parser";
 import { getChallenge } from "@/services/challenges";
 import { getLeagueWithRole } from "@/services/leagues";
 import { isSuspended } from "@/services/shared";
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
@@ -14,6 +15,35 @@ import { RecordChallengeForm } from "./record-challenge-form";
 type PageProps = {
   params: Promise<{ id: string; challengeId: string }>;
 };
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { challengeId } = await params;
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session) {
+    return {
+      title: "Record Challenge",
+    };
+  }
+
+  const challengeResult = await getChallenge(session.user.id, challengeId);
+  if (challengeResult.error || !challengeResult.data) {
+    return {
+      title: "Challenge Not Found",
+    };
+  }
+
+  const challenge = challengeResult.data;
+  const gameType = await getGameTypeById(challenge.gameTypeId);
+
+  return {
+    title: `Record Challenge - ${gameType?.name ?? "Unknown Game"}`,
+    description: `Record the result of your challenge match`,
+  };
+}
 
 export default async function RecordChallengePage({ params }: PageProps) {
   const { id: leagueId, challengeId } = await params;

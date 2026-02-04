@@ -1,0 +1,3 @@
+ALTER TABLE "league_invitation" ADD COLUMN "placeholder_id" text;--> statement-breakpoint
+ALTER TABLE "league_invitation" ADD CONSTRAINT "league_invitation_placeholder_id_placeholder_member_id_fk" FOREIGN KEY ("placeholder_id") REFERENCES "public"."placeholder_member"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "league_invitation_placeholder_idx" ON "league_invitation" USING btree ("placeholder_id");

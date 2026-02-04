@@ -1,10 +1,21 @@
-import { and, count, eq, isNotNull, isNull } from "drizzle-orm";
+import { InvitationStatus } from "@/lib/shared/constants";
+import {
+  and,
+  count,
+  eq,
+  gt,
+  isNotNull,
+  isNull,
+  notInArray,
+  or,
+} from "drizzle-orm";
 
 import { DBOrTx, db } from "./index";
 import {
   NewPlaceholderMember,
   PlaceholderMember,
   highScoreEntry,
+  leagueInvitation,
   matchParticipant,
   placeholderMember,
   teamMember,
@@ -46,6 +57,69 @@ export async function getActivePlaceholderMembersByLeague(
         isNull(placeholderMember.retiredAt),
       ),
     )
+    .orderBy(placeholderMember.createdAt);
+
+  return results;
+}
+
+export async function getUnlinkedPlaceholderMembersByLeague(
+  leagueId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<PlaceholderMember[]> {
+  const results = await dbOrTx
+    .select()
+    .from(placeholderMember)
+    .where(
+      and(
+        eq(placeholderMember.leagueId, leagueId),
+        isNull(placeholderMember.retiredAt),
+        isNull(placeholderMember.linkedUserId),
+      ),
+    )
+    .orderBy(placeholderMember.createdAt);
+
+  return results;
+}
+
+export async function getAvailablePlaceholderMembersForInvite(
+  leagueId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<PlaceholderMember[]> {
+  const now = new Date();
+
+  const placeholdersWithPendingInvites = await dbOrTx
+    .selectDistinct({ placeholderId: leagueInvitation.placeholderId })
+    .from(leagueInvitation)
+    .where(
+      and(
+        eq(leagueInvitation.leagueId, leagueId),
+        eq(leagueInvitation.status, InvitationStatus.PENDING),
+        isNotNull(leagueInvitation.placeholderId),
+        or(
+          isNull(leagueInvitation.expiresAt),
+          gt(leagueInvitation.expiresAt, now),
+        ),
+      ),
+    );
+
+  const excludedIds = placeholdersWithPendingInvites
+    .map((r) => r.placeholderId)
+    .filter((id): id is string => id !== null);
+
+  const whereConditions = [
+    eq(placeholderMember.leagueId, leagueId),
+    isNull(placeholderMember.retiredAt),
+    isNull(placeholderMember.linkedUserId),
+  ];
+
+  if (excludedIds.length > 0) {
+    whereConditions.push(notInArray(placeholderMember.id, excludedIds));
+  }
+
+  const results = await dbOrTx
+    .select()
+    .from(placeholderMember)
+    .where(and(...whereConditions))
     .orderBy(placeholderMember.createdAt);
 
   return results;
@@ -139,4 +213,46 @@ export async function deletePlaceholderMember(
     .delete(placeholderMember)
     .where(eq(placeholderMember.id, placeholderId));
   return result.rowCount !== null && result.rowCount > 0;
+}
+
+export async function migrateMatchParticipantsToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(matchParticipant)
+    .set({
+      userId,
+      placeholderMemberId: null,
+    })
+    .where(eq(matchParticipant.placeholderMemberId, placeholderId));
+}
+
+export async function migrateTeamMembersToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(teamMember)
+    .set({
+      userId,
+      placeholderMemberId: null,
+    })
+    .where(eq(teamMember.placeholderMemberId, placeholderId));
+}
+
+export async function migrateHighScoreEntriesToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(highScoreEntry)
+    .set({
+      userId,
+      placeholderMemberId: null,
+    })
+    .where(eq(highScoreEntry.placeholderMemberId, placeholderId));
 }

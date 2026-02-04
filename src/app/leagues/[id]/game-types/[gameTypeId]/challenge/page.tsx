@@ -9,6 +9,7 @@ import { parseH2HConfig } from "@/lib/shared/game-config-parser";
 import { getGameType } from "@/services/game-types";
 import { getLeagueWithRole } from "@/services/leagues";
 import { isSuspended } from "@/services/shared";
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
@@ -18,6 +19,34 @@ import { CreateChallengeForm } from "./create-challenge-form";
 type PageProps = {
   params: Promise<{ id: string; gameTypeId: string }>;
 };
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { gameTypeId } = await params;
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session) {
+    return {
+      title: "Create Challenge",
+    };
+  }
+
+  const gameTypeResult = await getGameType(session.user.id, gameTypeId);
+  if (gameTypeResult.error || !gameTypeResult.data) {
+    return {
+      title: "Game Type Not Found",
+    };
+  }
+
+  const gameType = gameTypeResult.data;
+
+  return {
+    title: `Create Challenge - ${gameType.name}`,
+    description: `Challenge other players to a match of ${gameType.name}`,
+  };
+}
 
 export default async function CreateChallengePage({ params }: PageProps) {
   const { id: leagueId, gameTypeId } = await params;
