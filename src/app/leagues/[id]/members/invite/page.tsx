@@ -18,7 +18,6 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { CreatePlaceholderForm } from "./create-placeholder-form";
 import { InviteLinkGenerator } from "./invite-link-generator";
 import { PendingInvitationsList } from "./pending-invitations-list";
 import { UserInviteForm } from "./user-invite-form";
@@ -88,11 +87,6 @@ async function InviteContent({
 
   const availableRoles = getAssignableRoles(league.role);
 
-  const canCreatePlaceholders = canPerformAction(
-    league.role,
-    LeagueAction.CREATE_PLACEHOLDERS,
-  );
-
   const availablePlaceholders =
     await getAvailablePlaceholderMembersForInvite(leagueId);
 
@@ -130,21 +124,6 @@ async function InviteContent({
           />
         </CardContent>
       </Card>
-
-      {canCreatePlaceholders && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create Placeholder Member</CardTitle>
-            <CardDescription>
-              Create a placeholder for someone who hasn&apos;t signed up yet.
-              They can be linked to a real account later.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CreatePlaceholderForm leagueId={leagueId} />
-          </CardContent>
-        </Card>
-      )}
 
       {pendingInvitations.length > 0 && (
         <Card>
