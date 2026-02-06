@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/client/auth";
-import { Laptop, LogOut, Moon, Sun, User } from "lucide-react";
+import { Laptop, LogOut, Moon, Settings, Sun, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import Link from "next/link";
@@ -76,6 +76,12 @@ export function UserMenu({ user }: UserMenuProps) {
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
+            </DropdownMenuItem>
+          </Link>
+          <Link href="/account">
+            <DropdownMenuItem>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Account Settings</span>
             </DropdownMenuItem>
           </Link>
         </DropdownMenuGroup>

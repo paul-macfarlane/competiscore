@@ -1,4 +1,5 @@
 import { SignInButton } from "@/components/auth-buttons";
+import { Footer } from "@/components/footer";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -84,6 +85,8 @@ export default async function Home() {
           </Card>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }
