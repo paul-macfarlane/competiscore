@@ -76,11 +76,9 @@ export async function createChallenge(
   }
 
   for (const p of data.challengedParticipants) {
-    if (p.userId) {
-      const challengedMembership = await getLeagueMember(p.userId, leagueId);
-      if (challengedMembership && isSuspended(challengedMembership)) {
-        return { error: "Cannot challenge suspended members" };
-      }
+    const challengedMembership = await getLeagueMember(p.userId, leagueId);
+    if (challengedMembership && isSuspended(challengedMembership)) {
+      return { error: "Cannot challenge suspended members" };
     }
   }
 
@@ -103,9 +101,9 @@ export async function createChallenge(
     for (const p of data.challengerParticipants) {
       participants.push({
         matchId: match.id,
-        userId: p.userId ?? null,
-        teamId: p.teamId ?? null,
-        placeholderMemberId: p.placeholderMemberId ?? null,
+        userId: p.userId,
+        teamId: null,
+        placeholderMemberId: null,
         side: 1,
         result: null,
         score: null,
@@ -117,9 +115,9 @@ export async function createChallenge(
     for (const p of data.challengedParticipants) {
       participants.push({
         matchId: match.id,
-        userId: p.userId ?? null,
-        teamId: p.teamId ?? null,
-        placeholderMemberId: p.placeholderMemberId ?? null,
+        userId: p.userId,
+        teamId: null,
+        placeholderMemberId: null,
         side: 2,
         result: null,
         score: null,

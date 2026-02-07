@@ -210,7 +210,7 @@ Members can record match results in two ways:
 
 **Direct Recording:** Any member can record a completed match at any time by selecting the game type, participants, and entering the result.
 
-**Challenge System:** Members can challenge other members to a Head-to-Head game, creating a pending match. The challenged party can accept or decline. The challenger can cancel pending challenges. Once accepted, either party can record the result. Challenges are only available for H2H game types.
+**Challenge System:** Members can challenge other individual members (real authenticated users only) to a Head-to-Head game, creating a pending match. The challenged party can accept or decline. The challenger can cancel pending challenges. Once accepted, either party can record the result. Challenges are only available for H2H game types. Placeholder members and teams cannot participate in challenges, since they cannot receive notifications. Team-based challenges may be added in the future with proper notification support.
 
 ### 4.2 Match Data Captured
 

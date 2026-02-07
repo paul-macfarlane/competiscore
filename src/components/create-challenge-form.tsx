@@ -41,9 +41,7 @@ export function CreateChallengeForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const currentUser = participantOptions.find(
-    (p) => p.type === MatchParticipantType.USER && p.id === currentUserId,
-  );
+  const currentUser = participantOptions.find((p) => p.id === currentUserId);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(createChallengeSchema),
@@ -51,8 +49,8 @@ export function CreateChallengeForm({
       gameTypeId,
       challengerParticipants: currentUser
         ? [{ userId: currentUser.id }]
-        : [{ userId: undefined }],
-      challengedParticipants: [{ userId: undefined }],
+        : [{ userId: "" }],
+      challengedParticipants: [{ userId: "" }],
     },
     mode: "onChange",
   });
@@ -104,7 +102,7 @@ export function CreateChallengeForm({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => challengerArray.append({ userId: undefined })}
+                onClick={() => challengerArray.append({ userId: "" })}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add
@@ -123,20 +121,7 @@ export function CreateChallengeForm({
                   onChange={(participant) => {
                     form.setValue(
                       `challengerParticipants.${index}`,
-                      {
-                        userId:
-                          participant?.type === MatchParticipantType.USER
-                            ? participant.id
-                            : undefined,
-                        teamId:
-                          participant?.type === MatchParticipantType.TEAM
-                            ? participant.id
-                            : undefined,
-                        placeholderMemberId:
-                          participant?.type === MatchParticipantType.PLACEHOLDER
-                            ? participant.id
-                            : undefined,
-                      },
+                      { userId: participant?.id ?? "" },
                       { shouldValidate: true },
                     );
                   }}
@@ -164,7 +149,7 @@ export function CreateChallengeForm({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => challengedArray.append({ userId: undefined })}
+                onClick={() => challengedArray.append({ userId: "" })}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add
@@ -182,20 +167,7 @@ export function CreateChallengeForm({
                   onChange={(participant) => {
                     form.setValue(
                       `challengedParticipants.${index}`,
-                      {
-                        userId:
-                          participant?.type === MatchParticipantType.USER
-                            ? participant.id
-                            : undefined,
-                        teamId:
-                          participant?.type === MatchParticipantType.TEAM
-                            ? participant.id
-                            : undefined,
-                        placeholderMemberId:
-                          participant?.type === MatchParticipantType.PLACEHOLDER
-                            ? participant.id
-                            : undefined,
-                      },
+                      { userId: participant?.id ?? "" },
                       { shouldValidate: true },
                     );
                   }}
@@ -240,19 +212,8 @@ export function CreateChallengeForm({
 }
 
 function getParticipantValue(
-  participant:
-    | { userId?: string; teamId?: string; placeholderMemberId?: string }
-    | undefined,
+  participant: { userId?: string } | undefined,
 ): { id: string; type: MatchParticipantType } | undefined {
-  if (!participant) return undefined;
-  if (participant.userId)
-    return { id: participant.userId, type: MatchParticipantType.USER };
-  if (participant.teamId)
-    return { id: participant.teamId, type: MatchParticipantType.TEAM };
-  if (participant.placeholderMemberId)
-    return {
-      id: participant.placeholderMemberId,
-      type: MatchParticipantType.PLACEHOLDER,
-    };
-  return undefined;
+  if (!participant?.userId) return undefined;
+  return { id: participant.userId, type: MatchParticipantType.USER };
 }

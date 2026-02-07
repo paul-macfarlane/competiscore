@@ -10,6 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MatchParticipantType } from "@/lib/shared/constants";
 import { parseH2HConfig } from "@/lib/shared/game-config-parser";
 import { ParticipantOption } from "@/lib/shared/participant-options";
 import { ArrowLeft } from "lucide-react";
@@ -130,7 +131,9 @@ export function CreateChallengeDialog({
               leagueId={leagueId}
               gameTypeId={selectedGameType.id}
               config={parseH2HConfig(selectedGameType.config)}
-              participantOptions={participantOptions}
+              participantOptions={participantOptions.filter(
+                (p) => p.type === MatchParticipantType.USER,
+              )}
               currentUserId={currentUserId}
               onSuccess={handleSuccess}
               onCancel={handleCancel}

@@ -181,10 +181,14 @@ export const submitHighScoreSchema = z.object({
 
 export type SubmitHighScoreInput = z.infer<typeof submitHighScoreSchema>;
 
+export const challengeParticipantSchema = z.object({
+  userId: z.string(),
+});
+
 export const createChallengeSchema = z.object({
   gameTypeId: z.uuid(),
-  challengerParticipants: z.array(participantSchema).min(1),
-  challengedParticipants: z.array(participantSchema).min(1),
+  challengerParticipants: z.array(challengeParticipantSchema).min(1),
+  challengedParticipants: z.array(challengeParticipantSchema).min(1),
 });
 
 export type CreateChallengeInput = z.infer<typeof createChallengeSchema>;
