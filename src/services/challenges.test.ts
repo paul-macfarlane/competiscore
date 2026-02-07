@@ -272,6 +272,54 @@ describe("createChallenge", () => {
     expect(result.error).toBe("Validation failed");
     expect(result.fieldErrors).toBeDefined();
   });
+
+  it("should fail if challenged participant is a team", async () => {
+    const TEAM_ID = "550e8400-e29b-41d4-a716-446655440701";
+    const result = await createChallenge(USER_ID_1, LEAGUE_ID, {
+      gameTypeId: GAME_TYPE_ID,
+      challengerParticipants: [{ userId: USER_ID_1 }],
+      challengedParticipants: [{ teamId: TEAM_ID }],
+    });
+
+    expect(result.error).toBe("Validation failed");
+    expect(result.fieldErrors).toBeDefined();
+  });
+
+  it("should fail if challenged participant is a placeholder", async () => {
+    const PLACEHOLDER_ID = "550e8400-e29b-41d4-a716-446655440801";
+    const result = await createChallenge(USER_ID_1, LEAGUE_ID, {
+      gameTypeId: GAME_TYPE_ID,
+      challengerParticipants: [{ userId: USER_ID_1 }],
+      challengedParticipants: [{ placeholderMemberId: PLACEHOLDER_ID }],
+    });
+
+    expect(result.error).toBe("Validation failed");
+    expect(result.fieldErrors).toBeDefined();
+  });
+
+  it("should fail if challenger participant is a team", async () => {
+    const TEAM_ID = "550e8400-e29b-41d4-a716-446655440701";
+    const result = await createChallenge(USER_ID_1, LEAGUE_ID, {
+      gameTypeId: GAME_TYPE_ID,
+      challengerParticipants: [{ teamId: TEAM_ID }],
+      challengedParticipants: [{ userId: USER_ID_2 }],
+    });
+
+    expect(result.error).toBe("Validation failed");
+    expect(result.fieldErrors).toBeDefined();
+  });
+
+  it("should fail if challenger participant is a placeholder", async () => {
+    const PLACEHOLDER_ID = "550e8400-e29b-41d4-a716-446655440801";
+    const result = await createChallenge(USER_ID_1, LEAGUE_ID, {
+      gameTypeId: GAME_TYPE_ID,
+      challengerParticipants: [{ placeholderMemberId: PLACEHOLDER_ID }],
+      challengedParticipants: [{ userId: USER_ID_2 }],
+    });
+
+    expect(result.error).toBe("Validation failed");
+    expect(result.fieldErrors).toBeDefined();
+  });
 });
 
 describe("acceptChallenge", () => {
