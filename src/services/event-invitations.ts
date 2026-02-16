@@ -262,28 +262,28 @@ export async function acceptEventInvitation(
 
   const { token } = parsed.data;
 
-  const invitation = await getEventInvitationByToken(token);
-  if (!invitation) {
-    return { error: "Invite link not found" };
-  }
-
-  if (invitation.status !== InvitationStatus.PENDING) {
-    return { error: "This invite link is no longer active" };
-  }
-
-  const now = new Date();
-  if (invitation.expiresAt && invitation.expiresAt < now) {
-    return { error: "This invite link has expired" };
-  }
-
-  if (
-    invitation.maxUses !== null &&
-    invitation.useCount >= invitation.maxUses
-  ) {
-    return { error: "This invite link has reached its maximum uses" };
-  }
-
   return withTransaction(async (tx) => {
+    const invitation = await getEventInvitationByToken(token, tx);
+    if (!invitation) {
+      return { error: "Invite link not found" };
+    }
+
+    if (invitation.status !== InvitationStatus.PENDING) {
+      return { error: "This invite link is no longer active" };
+    }
+
+    const now = new Date();
+    if (invitation.expiresAt && invitation.expiresAt < now) {
+      return { error: "This invite link has expired" };
+    }
+
+    if (
+      invitation.maxUses !== null &&
+      invitation.useCount >= invitation.maxUses
+    ) {
+      return { error: "This invite link has reached its maximum uses" };
+    }
+
     const joinResult = await addUserToEvent(
       userId,
       invitation.eventId,

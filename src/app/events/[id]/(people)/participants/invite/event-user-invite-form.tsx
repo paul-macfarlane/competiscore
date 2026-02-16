@@ -1,6 +1,9 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  ParticipantData,
+  ParticipantDisplay,
+} from "@/components/participant-display";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +16,6 @@ import {
 } from "@/components/ui/select";
 import { EventPlaceholderParticipant } from "@/db/schema";
 import { UserSearchResult } from "@/db/users";
-import { getInitials } from "@/lib/client/utils";
 import { EventParticipantRole } from "@/lib/shared/constants";
 import { EVENT_ROLE_LABELS } from "@/lib/shared/roles";
 import { Check, Loader2, Search, X } from "lucide-react";
@@ -119,16 +121,12 @@ export function EventUserInviteForm({
 
       {selectedUser ? (
         <div className="flex items-center gap-3 rounded-lg border p-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={selectedUser.image ?? undefined} />
-            <AvatarFallback>{getInitials(selectedUser.name)}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-medium">{selectedUser.name}</div>
-            <div className="text-muted-foreground text-sm">
-              @{selectedUser.username}
-            </div>
-          </div>
+          <ParticipantDisplay
+            participant={{ user: selectedUser } as ParticipantData}
+            showAvatar
+            showUsername
+            size="lg"
+          />
           <Button
             variant="ghost"
             size="icon"
@@ -162,18 +160,12 @@ export function EventUserInviteForm({
                   onClick={() => handleSelectUser(user)}
                   className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-accent"
                 >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.image ?? undefined} />
-                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">
-                      {user.name}
-                    </div>
-                    <div className="text-muted-foreground text-xs">
-                      @{user.username}
-                    </div>
-                  </div>
+                  <ParticipantDisplay
+                    participant={{ user } as ParticipantData}
+                    showAvatar
+                    showUsername
+                    size="md"
+                  />
                 </button>
               ))}
             </div>

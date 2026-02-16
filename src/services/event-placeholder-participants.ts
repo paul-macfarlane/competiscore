@@ -221,6 +221,20 @@ export async function restoreEventPlaceholder(
   return { data: { restored: true, eventId } };
 }
 
+export async function checkEventPlaceholderActivity(
+  userId: string,
+  placeholderId: string,
+  eventId: string,
+): Promise<ServiceResult<{ hasActivity: boolean }>> {
+  const participation = await dbGetEventParticipant(eventId, userId);
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  const hasActivity = await dbHasEventPlaceholderActivity(placeholderId);
+  return { data: { hasActivity } };
+}
+
 export async function deleteEventPlaceholder(
   userId: string,
   input: unknown,

@@ -196,7 +196,7 @@ export async function updateEventGameType(
 export async function archiveEventGameType(
   userId: string,
   input: unknown,
-): Promise<ServiceResult<void>> {
+): Promise<ServiceResult<{ eventId: string }>> {
   const parsed = archiveEventGameTypeSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -224,13 +224,13 @@ export async function archiveEventGameType(
   }
 
   await dbArchiveEventGameType(gameTypeId);
-  return { data: undefined };
+  return { data: { eventId: gameType.eventId } };
 }
 
 export async function unarchiveEventGameType(
   userId: string,
   input: unknown,
-): Promise<ServiceResult<void>> {
+): Promise<ServiceResult<{ eventId: string }>> {
   const parsed = unarchiveEventGameTypeSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -258,13 +258,13 @@ export async function unarchiveEventGameType(
   }
 
   await dbUnarchiveEventGameType(gameTypeId);
-  return { data: undefined };
+  return { data: { eventId: gameType.eventId } };
 }
 
 export async function deleteEventGameType(
   userId: string,
   input: unknown,
-): Promise<ServiceResult<void>> {
+): Promise<ServiceResult<{ eventId: string }>> {
   const parsed = deleteEventGameTypeSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -296,5 +296,5 @@ export async function deleteEventGameType(
     return { error: "Failed to delete game type" };
   }
 
-  return { data: undefined };
+  return { data: { eventId: gameType.eventId } };
 }

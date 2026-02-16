@@ -66,10 +66,6 @@ Move items to the appropriate section as they are completed. Testing should be d
 
 ## In progress
 
-### Batch 2 - Low/Medium Changes (next)
-
--
-
 ### Batch 3 - Large Changes (later)
 
 #### Best Score Matches
@@ -89,7 +85,7 @@ Move items to the appropriate section as they are completed. Testing should be d
 
 ## Needs testing
 
--
+- NOTHING YET
 
 - I should do a general round of testing for mobile responsiveness. No action needed yet.
 - Should do a general testing of RBAC for events to make sure they match my expectations.

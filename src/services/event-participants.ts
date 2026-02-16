@@ -1,6 +1,7 @@
 import {
   EventParticipantWithUser,
   addEventParticipant as dbAddEventParticipant,
+  countEventOrganizers as dbCountEventOrganizers,
   countEventParticipants as dbCountEventParticipants,
   getEventParticipant as dbGetEventParticipant,
   getEventParticipants as dbGetEventParticipants,
@@ -214,6 +215,14 @@ export async function demoteToParticipant(
 
   if (targetParticipation.role === EventParticipantRole.PARTICIPANT) {
     return { error: "User is already a participant" };
+  }
+
+  const organizerCount = await dbCountEventOrganizers(eventId);
+  if (organizerCount <= 1) {
+    return {
+      error:
+        "Cannot demote the only organizer. Promote another participant first.",
+    };
   }
 
   await dbUpdateEventParticipantRole(

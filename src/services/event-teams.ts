@@ -206,6 +206,14 @@ export async function deleteEventTeam(
     return { error: "You don't have permission to manage teams" };
   }
 
+  const event = await dbGetEventById(team.eventId);
+  if (!event) {
+    return { error: "Event not found" };
+  }
+  if (event.status !== EventStatus.DRAFT) {
+    return { error: "Teams can only be deleted before the event starts" };
+  }
+
   const deleted = await dbDeleteEventTeam(parsed.data.eventTeamId);
   if (!deleted) {
     return { error: "Failed to delete team" };

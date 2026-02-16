@@ -3,10 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { hasEventPlaceholderActivity } from "@/db/events";
 import { auth } from "@/lib/server/auth";
 import { EventParticipantRole } from "@/lib/shared/constants";
 import {
+  checkEventPlaceholderActivity,
   getEventPlaceholders,
   getRetiredEventPlaceholders,
 } from "@/services/event-placeholder-participants";
@@ -106,12 +106,14 @@ async function PlaceholdersContent({
   const retiredPlaceholders = retiredResult.data ?? [];
 
   const activityChecks = await Promise.all(
-    placeholders.map((p) => hasEventPlaceholderActivity(p.id)),
+    placeholders.map((p) =>
+      checkEventPlaceholderActivity(userId, p.id, eventId),
+    ),
   );
 
   const placeholdersWithActivity = placeholders.map((p, i) => ({
     placeholder: p,
-    hasActivity: activityChecks[i],
+    hasActivity: activityChecks[i].data?.hasActivity ?? false,
   }));
 
   return (

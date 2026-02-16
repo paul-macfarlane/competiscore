@@ -7,7 +7,6 @@ import {
   EventHighScoreEntry,
   EventHighScoreSession,
   EventMatch,
-  EventPlaceholderParticipant,
   EventTournament,
   EventTournamentParticipant,
 } from "@/db/schema";
@@ -45,13 +44,6 @@ import {
   promoteToOrganizer,
   removeEventParticipant,
 } from "@/services/event-participants";
-import {
-  createEventPlaceholder,
-  deleteEventPlaceholder,
-  restoreEventPlaceholder,
-  retireEventPlaceholder,
-  updateEventPlaceholder,
-} from "@/services/event-placeholder-participants";
 import {
   addEventTeamMember,
   createEventTeam,
@@ -257,73 +249,6 @@ export async function demoteToParticipantAction(
   return result;
 }
 
-// Placeholders
-
-export async function createEventPlaceholderAction(
-  input: unknown,
-): Promise<ServiceResult<EventPlaceholderParticipant>> {
-  const userId = await getSessionUserId();
-  if (!userId) return { error: "Unauthorized" };
-
-  const result = await createEventPlaceholder(userId, input);
-  if (result.data) {
-    revalidatePath(`/events/${result.data.eventId}`);
-  }
-  return result;
-}
-
-export async function updateEventPlaceholderAction(
-  input: unknown,
-): Promise<ServiceResult<EventPlaceholderParticipant>> {
-  const userId = await getSessionUserId();
-  if (!userId) return { error: "Unauthorized" };
-
-  const result = await updateEventPlaceholder(userId, input);
-  if (result.data) {
-    revalidatePath(`/events/${result.data.eventId}`);
-  }
-  return result;
-}
-
-export async function retireEventPlaceholderAction(
-  input: unknown,
-): Promise<ServiceResult<{ retired: boolean; eventId: string }>> {
-  const userId = await getSessionUserId();
-  if (!userId) return { error: "Unauthorized" };
-
-  const result = await retireEventPlaceholder(userId, input);
-  if (result.data) {
-    revalidatePath(`/events/${result.data.eventId}`);
-  }
-  return result;
-}
-
-export async function restoreEventPlaceholderAction(
-  input: unknown,
-): Promise<ServiceResult<{ restored: boolean; eventId: string }>> {
-  const userId = await getSessionUserId();
-  if (!userId) return { error: "Unauthorized" };
-
-  const result = await restoreEventPlaceholder(userId, input);
-  if (result.data) {
-    revalidatePath(`/events/${result.data.eventId}`);
-  }
-  return result;
-}
-
-export async function deleteEventPlaceholderAction(
-  input: unknown,
-): Promise<ServiceResult<{ deleted: boolean; eventId: string }>> {
-  const userId = await getSessionUserId();
-  if (!userId) return { error: "Unauthorized" };
-
-  const result = await deleteEventPlaceholder(userId, input);
-  if (result.data) {
-    revalidatePath(`/events/${result.data.eventId}`);
-  }
-  return result;
-}
-
 // Game Types
 
 export async function createEventGameTypeAction(
@@ -355,29 +280,41 @@ export async function updateEventGameTypeAction(
 
 export async function archiveEventGameTypeAction(
   input: unknown,
-): Promise<ServiceResult<void>> {
+): Promise<ServiceResult<{ eventId: string }>> {
   const userId = await getSessionUserId();
   if (!userId) return { error: "Unauthorized" };
 
-  return archiveEventGameType(userId, input);
+  const result = await archiveEventGameType(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
 }
 
 export async function unarchiveEventGameTypeAction(
   input: unknown,
-): Promise<ServiceResult<void>> {
+): Promise<ServiceResult<{ eventId: string }>> {
   const userId = await getSessionUserId();
   if (!userId) return { error: "Unauthorized" };
 
-  return unarchiveEventGameType(userId, input);
+  const result = await unarchiveEventGameType(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
 }
 
 export async function deleteEventGameTypeAction(
   input: unknown,
-): Promise<ServiceResult<void>> {
+): Promise<ServiceResult<{ eventId: string }>> {
   const userId = await getSessionUserId();
   if (!userId) return { error: "Unauthorized" };
 
-  return deleteEventGameType(userId, input);
+  const result = await deleteEventGameType(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
 }
 
 // Teams

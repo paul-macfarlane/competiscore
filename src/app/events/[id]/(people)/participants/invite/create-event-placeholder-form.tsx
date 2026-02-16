@@ -7,7 +7,7 @@ import { Loader2, Plus } from "lucide-react";
 import { type FormEvent, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { createEventPlaceholderAction } from "../../../actions";
+import { createEventPlaceholderAction } from "../placeholders/actions";
 
 interface CreateEventPlaceholderFormProps {
   eventId: string;
