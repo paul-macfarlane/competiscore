@@ -232,6 +232,20 @@
       "when": 1771286400001,
       "tag": "0032_simple_jane_foster",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1771358922346,
+      "tag": "0033_amazing_scrambler",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1771365420118,
+      "tag": "0034_handy_bug",
+      "breakpoints": true
     }
   ]
 }

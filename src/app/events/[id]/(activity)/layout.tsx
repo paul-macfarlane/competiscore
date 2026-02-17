@@ -16,6 +16,7 @@ export default async function EventActivityLayout({
     { label: "Matches", href: `/events/${id}/matches` },
     { label: "Best Scores", href: `/events/${id}/high-scores` },
     { label: "Tournaments", href: `/events/${id}/tournaments` },
+    { label: "Discretionary", href: `/events/${id}/discretionary` },
   ];
 
   return (

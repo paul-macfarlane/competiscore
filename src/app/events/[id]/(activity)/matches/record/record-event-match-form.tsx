@@ -29,6 +29,7 @@ import {
   GameCategory,
   MatchParticipantType,
   ParticipantType,
+  ScoringType,
 } from "@/lib/shared/constants";
 import {
   getScoreDescription,
@@ -93,6 +94,19 @@ export function RecordEventMatchForm({
       "Score"
     : "Score";
 
+  const hasScoring =
+    selectedGameType &&
+    (() => {
+      const config = parseGameConfig(
+        selectedGameType.config,
+        selectedGameType.category as GameCategory,
+      );
+      if ("scoringType" in config) {
+        return config.scoringType === ScoringType.SCORE_BASED;
+      }
+      return true;
+    })();
+
   return (
     <Card>
       <CardHeader>
@@ -126,6 +140,7 @@ export function RecordEventMatchForm({
                 gameTypeId={selectedGameType.id}
                 participantOptions={activeOptions}
                 scoreLabel={scoreLabel}
+                hasScoring={!!hasScoring}
               />
             ) : (
               <FFAMatchForm
@@ -133,6 +148,7 @@ export function RecordEventMatchForm({
                 gameTypeId={selectedGameType.id}
                 participantOptions={activeOptions}
                 scoreLabel={scoreLabel}
+                hasScoring={!!hasScoring}
               />
             )}
           </>
@@ -186,11 +202,13 @@ function H2HMatchForm({
   gameTypeId,
   participantOptions,
   scoreLabel,
+  hasScoring,
 }: {
   eventId: string;
   gameTypeId: string;
   participantOptions: ParticipantOption[];
   scoreLabel: string;
+  hasScoring: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -411,56 +429,58 @@ function H2HMatchForm({
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="side1Score"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Side 1 {scoreLabel} (optional)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="any"
-                    placeholder={scoreLabel}
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      field.onChange(
-                        value === "" ? undefined : parseFloat(value),
-                      );
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="side2Score"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Side 2 {scoreLabel} (optional)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="any"
-                    placeholder={scoreLabel}
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      field.onChange(
-                        value === "" ? undefined : parseFloat(value),
-                      );
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {hasScoring && (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="side1Score"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Side 1 {scoreLabel} (optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder={scoreLabel}
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(
+                          value === "" ? undefined : parseFloat(value),
+                        );
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="side2Score"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Side 2 {scoreLabel} (optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder={scoreLabel}
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(
+                          value === "" ? undefined : parseFloat(value),
+                        );
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -569,11 +589,13 @@ function FFAMatchForm({
   gameTypeId,
   participantOptions,
   scoreLabel,
+  hasScoring,
 }: {
   eventId: string;
   gameTypeId: string;
   participantOptions: ParticipantOption[];
   scoreLabel: string;
+  hasScoring: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -717,7 +739,9 @@ function FFAMatchForm({
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div
+                  className={`grid gap-2 ${hasScoring ? "grid-cols-3" : "grid-cols-2"}`}
+                >
                   <FormField
                     control={form.control}
                     name={`participants.${index}.rank`}
@@ -743,30 +767,34 @@ function FFAMatchForm({
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name={`participants.${index}.score`}
-                    render={({ field: scoreField }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">{scoreLabel}</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="any"
-                            placeholder={scoreLabel}
-                            value={scoreField.value ?? ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              scoreField.onChange(
-                                value === "" ? undefined : parseFloat(value),
-                              );
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {hasScoring && (
+                    <FormField
+                      control={form.control}
+                      name={`participants.${index}.score`}
+                      render={({ field: scoreField }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">
+                            {scoreLabel}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="any"
+                              placeholder={scoreLabel}
+                              value={scoreField.value ?? ""}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                scoreField.onChange(
+                                  value === "" ? undefined : parseFloat(value),
+                                );
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <FormField
                     control={form.control}
                     name={`participants.${index}.points`}

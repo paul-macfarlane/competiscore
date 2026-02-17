@@ -339,7 +339,7 @@ _Future: Round Robin (standalone), Swiss, Double Elimination_
 
 - Name and optional logo
 - Tournament type: Single Elimination (MVP), Group Play → Single Elimination _(Future)_, Series _(Future)_
-- Match format: Best-of-X series per round (e.g., best of 1, best of 3, best of 5) — applies to Single Elimination and Group Play types
+- Match format: Default best-of-X for all rounds (e.g., best of 1, best of 3, best of 5), with optional per-round overrides (e.g., Round 1 = Bo1, Semifinals = Bo3, Finals = Bo5) — applies to Single Elimination and Group Play types. Best-of values must be odd numbers (1, 3, 5, 7, 9).
 - Variation: Single game type for all rounds, or different game types per round
 - Participant type: Individuals or Teams
 - Seeding: Manual or Random
@@ -471,12 +471,41 @@ Team-based scoring only (for now):
 - Match results (H2H wins, FFA placements) earn points for the participating teams
 - High score session closures award placement points to submitters' teams
 - Tournament completions award placement points to participating teams
-- Points are tracked per-team with category labels (h2h_match, ffa_match, high_score, tournament)
-- Points are removed when matches/entries are deleted
+- Discretionary awards give organizers ad-hoc bonus/penalty points for teams
+- Points are tracked per-team with category labels (h2h_match, ffa_match, high_score, tournament, discretionary)
+- Points are removed when matches/entries/awards are deleted
+- Point entries store individual participant info (userId or placeholder participant) where applicable, enabling individual attribution in analytics:
+  - **H2H matches:** Individual stored when exactly one participant per team on a side; null for multi-participant teams
+  - **FFA matches:** Individual stored per participant (entries are per-participant)
+  - **High scores:** Individual who achieved the best placement for their team is stored
+  - **Tournaments:** Individual tournament participant is stored
+  - **Discretionary:** Team-level only (recipients schema only has team IDs)
 
 No ELO ratings in events — points only.
 
-### 8.11 Event Leaderboard
+### 8.11 Discretionary Points
+
+Organizers can award ad-hoc bonus (or penalty) points to teams outside of normal match/tournament/high-score flows. This supports recognizing sportsmanship, penalizing rule violations, awarding participation bonuses, or any other scenario the organizer deems fit.
+
+**Discretionary Award Properties:**
+
+- Name (required, max 100 characters)
+- Description (required, max 500 characters)
+- Points value (positive for bonuses, negative for penalties — supports decimals)
+- Recipients: One or more teams (up to 50)
+
+**How it works:**
+
+- Only organizers can create, edit, and delete discretionary awards
+- Awards can only be created/edited when the event is active
+- Each selected recipient team receives the specified points as a point entry (category: discretionary, outcome: award)
+- When an award is edited (points or recipients changed), existing point entries are deleted and re-created
+- Deleting an award cascades to remove its point entries from the leaderboard
+- All participants can view discretionary awards
+
+_Future: Support awarding discretionary points to individual participants (resolved to their team) in addition to direct team selection._
+
+### 8.12 Event Leaderboard
 
 The event leaderboard shows:
 
@@ -484,11 +513,25 @@ The event leaderboard shows:
 - Per-game-type leaderboards for high score game types (individual-based, showing participant name and team)
 - Historical events preserved for reference after completion
 
-### 8.12 Event Placeholder Members
+### 8.13 Event Metrics Dashboard
+
+The event homepage displays a rich analytics dashboard for all participants, built with Recharts. The dashboard shows the following visualizations (only displayed when point data exists, zero-point entries are excluded):
+
+**Standings Bar Chart:** Horizontal bar chart showing teams ranked by total points with team colors.
+
+**Points Over Time:** Line chart showing cumulative point totals per team over time. Each data point is a clickable dot that opens a popover showing the scoring entry details (team, category, outcome, points change) with a link to the relevant match/tournament/discretionary page. The Y-axis includes padding above the highest value to prevent dots from being cut off.
+
+**Team Share Pie Chart:** Donut chart showing each team's share of total points, colored by team color.
+
+**Top Contributors / Points by Category:** When individual participant data is available on point entries, shows a "Top Contributors" pie chart with each contributor in a distinct color (tooltip shows team affiliation). When no individual data is available, falls back to a "Points by Category" donut chart showing the distribution across H2H, FFA, High Score, Tournament, and Discretionary categories.
+
+**Scoring History Log:** Reverse-chronological list of all scoring events. Each entry shows category badge, outcome badge, team color badge, individual name (when available), point value (color-coded: green for positive, red for negative), relative timestamp, and a link icon to the relevant match/tournament/discretionary detail page. Paginated with "Show more" (10 entries at a time).
+
+### 8.14 Event Placeholder Members
 
 Events support placeholder members (same concept as leagues) for tracking participants who haven't signed up yet. Placeholders can be assigned to teams and participate in matches.
 
-### 8.13 Event Invitations
+### 8.15 Event Invitations
 
 Events are private and invite-only. Organizers can:
 
@@ -497,20 +540,23 @@ Events are private and invite-only. Organizers can:
 
 Invite links handle the same scenarios as league invite links (authenticated, non-authenticated users).
 
-### 8.14 Event Tournaments
+### 8.16 Event Tournaments
 
 Events support single elimination tournaments with individual participants (representing their teams). Tournament matches earn points for the event leaderboard. Optional placement point config awards bonus points when the tournament completes.
 
-**Recording:** Both organizers and participants can record tournament match results. Participants can only record results for matches they are involved in.
+**Best-of Series:** Each tournament round can have its own best-of setting (e.g., early rounds Bo1, semifinals Bo3, finals Bo5). Individual games within a series are tracked, and a winner is automatically determined when one side reaches the win threshold (e.g., 2 wins in a Bo3). A default best-of applies to all rounds, with optional per-round overrides configurable during the draft phase.
 
-**Undo:** Tournament match results can be undone (reverted) if no subsequent match further down the bracket has been played. This prevents cascading inconsistencies in the bracket.
+**Recording:** Both organizers and participants can record tournament match results. Participants can only record results for matches they are involved in. In a best-of series, each game is recorded individually and the series advances automatically when one side clinches.
+
+**Undo:** Tournament match results can be undone (reverted). For best-of series, undoing removes the most recent game. If the series-deciding game is undone, the winner is un-advanced and the loser is un-eliminated. Undo is blocked if a subsequent match further down the bracket has already been played.
 
 _Future: Tournament match editing (modify results in-place without undo)._
 
-### 8.15 Future Event Enhancements
+### 8.17 Future Event Enhancements
 
 - Public events (discoverable and open to join)
 - Individual scoring mode (no teams required)
+- Discretionary points for individual participants (resolved to their team)
 - Event templates for common formats
 
 ---
@@ -764,10 +810,14 @@ When `/dashboard` returns, it should show cross-league personal data:
 8. ~~High score session flow (open → submit → close with optional placement points)~~
 9. ~~Event tournaments (single elimination, individual participants representing teams)~~
 10. ~~Tournament match undo with downstream bracket protection~~
-11. ~~Event invitations (direct invite + invite links, private events only)~~
-12. ~~Placeholder member support~~
-13. ~~Top-level navigation (Events alongside Leagues in header)~~
-14. ~~Per-game-type individual leaderboards for high score game types~~
+11. ~~Per-round best-of series configuration with individual game tracking~~
+12. ~~Event invitations (direct invite + invite links, private events only)~~
+13. ~~Placeholder member support~~
+14. ~~Top-level navigation (Events alongside Leagues in header)~~
+15. ~~Per-game-type individual leaderboards for high score game types~~
+16. ~~Discretionary points — organizers can award ad-hoc bonus/penalty points to teams~~
+17. ~~Event metrics dashboard — standings bar chart, points over time (clickable), team share pie chart, top contributors/category breakdown pie chart, scoring history log with detail links~~
+18. ~~Individual participant tracking on point entries for analytics attribution~~
 
 ### Post-MVP Features
 

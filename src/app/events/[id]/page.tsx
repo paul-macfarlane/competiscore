@@ -1,12 +1,11 @@
 import { LeagueBreadcrumb } from "@/components/league-breadcrumb";
-import { TeamColorBadge } from "@/components/team-color-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/server/auth";
 import { EventParticipantRole, EventStatus } from "@/lib/shared/constants";
 import { EVENT_ROLE_LABELS } from "@/lib/shared/roles";
-import { getEventLeaderboard } from "@/services/event-leaderboards";
+import { getEventMetrics } from "@/services/event-metrics";
 import { getEvent } from "@/services/events";
 import { idParamSchema } from "@/validators/shared";
 import type { Metadata } from "next";
@@ -15,7 +14,15 @@ import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import {
+  CategoryBreakdownChart,
+  ContributorsPieChart,
+} from "./contributors-pie-chart";
 import { LeaveEventButton } from "./leave-event-button";
+import { PointsTimelineChart } from "./points-timeline-chart";
+import { ScoringHistoryLog } from "./scoring-history-log";
+import { StandingsBarChart } from "./standings-bar-chart";
+import { TeamSharePieChart } from "./team-share-pie-chart";
 
 interface EventHomePageProps {
   params: Promise<{ id: string }>;
@@ -140,41 +147,67 @@ async function EventHomeContent({
 
       <Suspense
         fallback={
-          <Card>
-            <CardHeader>
-              <CardTitle>Leaderboard</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-10" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Standings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-10" />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         }
       >
-        <LeaderboardPreview eventId={eventId} userId={userId} />
+        <EventMetricsSection eventId={eventId} userId={userId} />
       </Suspense>
     </>
   );
 }
 
-async function LeaderboardPreview({
+async function EventMetricsSection({
   eventId,
   userId,
 }: {
   eventId: string;
   userId: string;
 }) {
-  const result = await getEventLeaderboard(userId, eventId);
-  const entries = result.data ?? [];
-
-  if (entries.length === 0) {
+  const result = await getEventMetrics(userId, eventId);
+  if (result.error || !result.data) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Leaderboard</CardTitle>
+          <CardTitle>Standings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            No points recorded yet. Start by recording matches!
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const {
+    log,
+    cumulativeTimeline,
+    teamContributions,
+    individualContributions,
+    categoryBreakdowns,
+    leaderboard,
+  } = result.data;
+
+  const hasData = log.length > 0;
+
+  if (!hasData) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Standings</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
@@ -186,50 +219,31 @@ async function LeaderboardPreview({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Leaderboard</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {entries.map((entry) => (
-            <div
-              key={entry.eventTeamId}
-              className="flex items-center justify-between rounded-md border px-3 py-2"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-muted-foreground text-sm font-medium w-6 text-center">
-                  #{entry.rank}
-                </span>
-                {entry.teamLogo && (
-                  <div className="relative h-6 w-6 shrink-0 overflow-hidden rounded border bg-muted">
-                    <Image
-                      src={entry.teamLogo}
-                      alt={entry.teamName}
-                      fill
-                      className="object-cover p-0.5"
-                    />
-                  </div>
-                )}
-                {entry.teamColor ? (
-                  <TeamColorBadge
-                    name={entry.teamName}
-                    color={entry.teamColor}
-                  />
-                ) : (
-                  <span className="text-sm font-medium truncate">
-                    {entry.teamName}
-                  </span>
-                )}
-              </div>
-              <span className="text-sm font-bold tabular-nums">
-                {entry.totalPoints} pts
-              </span>
-            </div>
-          ))}
+    <div className="space-y-6">
+      <StandingsBarChart leaderboard={leaderboard} />
+
+      {cumulativeTimeline.length > 1 && (
+        <PointsTimelineChart
+          timeline={cumulativeTimeline}
+          teams={leaderboard}
+        />
+      )}
+
+      {teamContributions.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <TeamSharePieChart teamContributions={teamContributions} />
+          {individualContributions.length > 0 ? (
+            <ContributorsPieChart
+              individualContributions={individualContributions}
+            />
+          ) : (
+            <CategoryBreakdownChart categoryBreakdowns={categoryBreakdowns} />
+          )}
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      <ScoringHistoryLog log={log} />
+    </div>
   );
 }
 

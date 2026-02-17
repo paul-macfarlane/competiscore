@@ -30,12 +30,13 @@ import {
   TOURNAMENT_DESCRIPTION_MAX_LENGTH,
   TOURNAMENT_NAME_MAX_LENGTH,
 } from "@/services/constants";
+import { MAX_BEST_OF } from "@/services/constants";
 import { createEventTournamentSchema } from "@/validators/events";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Trophy } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -48,6 +49,181 @@ type Props = {
   eventId: string;
   gameTypes: { id: string; name: string; category: string }[];
 };
+
+function BestOfSection({
+  form,
+}: {
+  form: ReturnType<typeof useForm<FormValues>>;
+}) {
+  const [showPerRound, setShowPerRound] = useState(false);
+  const [roundOverrides, setRoundOverrides] = useState<
+    { round: string; bestOf: string }[]
+  >([]);
+
+  const updateRoundBestOf = (
+    overrides: { round: string; bestOf: string }[],
+  ) => {
+    const config: Record<string, number> = {};
+    for (const o of overrides) {
+      const round = parseInt(o.round, 10);
+      const bestOf = parseInt(o.bestOf, 10);
+      if (!isNaN(round) && round > 0 && !isNaN(bestOf) && bestOf > 0) {
+        config[String(round)] = bestOf;
+      }
+    }
+    form.setValue(
+      "roundBestOf",
+      Object.keys(config).length > 0 ? config : undefined,
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <FormField
+        control={form.control}
+        name="bestOf"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Default Best Of</FormLabel>
+            <FormControl>
+              <Select
+                onValueChange={(v) => field.onChange(parseInt(v, 10))}
+                value={String(field.value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from(
+                    { length: Math.ceil(MAX_BEST_OF / 2) },
+                    (_, i) => i * 2 + 1,
+                  ).map((v) => (
+                    <SelectItem key={v} value={String(v)}>
+                      Best of {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormControl>
+            <FormDescription>
+              Number of games per match (applies to all rounds by default)
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {!showPerRound ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setShowPerRound(true)}
+        >
+          Customize Per Round
+        </Button>
+      ) : (
+        <div className="space-y-3 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium">Per-Round Overrides</h4>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setShowPerRound(false);
+                setRoundOverrides([]);
+                form.setValue("roundBestOf", undefined);
+              }}
+            >
+              Remove All
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Override the default best-of for specific rounds (e.g., round 3 =
+            semifinals)
+          </p>
+          {roundOverrides.map((override, index) => (
+            <div key={index} className="flex items-end gap-2">
+              <div className="flex-1">
+                {index === 0 && (
+                  <label className="text-sm font-medium">Round</label>
+                )}
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Round #"
+                  value={override.round}
+                  onChange={(e) => {
+                    const updated = [...roundOverrides];
+                    updated[index] = {
+                      ...updated[index],
+                      round: e.target.value,
+                    };
+                    setRoundOverrides(updated);
+                    updateRoundBestOf(updated);
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                {index === 0 && (
+                  <label className="text-sm font-medium">Best Of</label>
+                )}
+                <Select
+                  value={override.bestOf}
+                  onValueChange={(v) => {
+                    const updated = [...roundOverrides];
+                    updated[index] = { ...updated[index], bestOf: v };
+                    setRoundOverrides(updated);
+                    updateRoundBestOf(updated);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Best of..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from(
+                      { length: Math.ceil(MAX_BEST_OF / 2) },
+                      (_, i) => i * 2 + 1,
+                    ).map((v) => (
+                      <SelectItem key={v} value={String(v)}>
+                        Bo{v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const updated = roundOverrides.filter((_, i) => i !== index);
+                  setRoundOverrides(updated);
+                  updateRoundBestOf(updated);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setRoundOverrides([...roundOverrides, { round: "", bestOf: "1" }])
+            }
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Add Round Override
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function CreateEventTournamentForm({ eventId, gameTypes }: Props) {
   const router = useRouter();
@@ -264,31 +440,7 @@ export function CreateEventTournamentForm({ eventId, gameTypes }: Props) {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="bestOf"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Best Of</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  min={1}
-                  step={1}
-                  {...field}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    field.onChange(value === "" ? "" : parseInt(value, 10));
-                  }}
-                />
-              </FormControl>
-              <FormDescription>
-                Number of games per match (e.g., best of 3)
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <BestOfSection form={form} />
 
         <div className="space-y-4">
           <div>

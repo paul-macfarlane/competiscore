@@ -37,6 +37,7 @@ export const TOURNAMENT_DESCRIPTION_MAX_LENGTH = 500;
 export const MAX_TOURNAMENT_PARTICIPANTS = 64;
 export const MIN_TOURNAMENT_PARTICIPANTS = 2;
 export const MAX_TOURNAMENTS_PER_LEAGUE = 20;
+export const MAX_BEST_OF = 9;
 
 export const EVENT_NAME_MAX_LENGTH = 100;
 export const EVENT_DESCRIPTION_MAX_LENGTH = 500;
@@ -59,6 +60,16 @@ export const EVENT_TEAM_COLORS = [
   { value: "pink", label: "Pink", bg: "#db2777", text: "white" },
 ] as const;
 export type EventTeamColor = (typeof EVENT_TEAM_COLORS)[number]["value"];
+
+export function getTeamColorHex(colorValue: string | null): string {
+  if (!colorValue) return "#94a3b8";
+  const found = EVENT_TEAM_COLORS.find((c) => c.value === colorValue);
+  return found ? found.bg : "#94a3b8";
+}
+
+export const DISCRETIONARY_AWARD_NAME_MAX_LENGTH = 100;
+export const DISCRETIONARY_AWARD_DESCRIPTION_MAX_LENGTH = 500;
+export const MAX_DISCRETIONARY_AWARD_RECIPIENTS = 50;
 
 export const HIGH_SCORE_SESSION_NAME_MAX_LENGTH = 100;
 export const HIGH_SCORE_SESSION_DESCRIPTION_MAX_LENGTH = 500;

@@ -5,6 +5,8 @@ import {
   ParticipantType,
 } from "@/lib/shared/constants";
 import {
+  DISCRETIONARY_AWARD_DESCRIPTION_MAX_LENGTH,
+  DISCRETIONARY_AWARD_NAME_MAX_LENGTH,
   EVENT_DESCRIPTION_MAX_LENGTH,
   EVENT_NAME_MAX_LENGTH,
   EVENT_TEAM_COLORS,
@@ -12,6 +14,8 @@ import {
   GAME_TYPE_NAME_MAX_LENGTH,
   HIGH_SCORE_SESSION_DESCRIPTION_MAX_LENGTH,
   HIGH_SCORE_SESSION_NAME_MAX_LENGTH,
+  MAX_BEST_OF,
+  MAX_DISCRETIONARY_AWARD_RECIPIENTS,
   MAX_EVENT_TEAM_NAME_MAX_LENGTH,
   MAX_TOURNAMENT_PARTICIPANTS,
   NAME_MAX_LENGTH,
@@ -571,6 +575,24 @@ export type UpdateHighScoreSessionInput = z.infer<
   typeof updateHighScoreSessionSchema
 >;
 
+// Best-of value validation (must be odd positive integer)
+const bestOfValueSchema = z
+  .number()
+  .int()
+  .min(1, "Best of must be at least 1")
+  .max(MAX_BEST_OF, `Best of must be at most ${MAX_BEST_OF}`)
+  .refine((v) => v % 2 === 1, { message: "Best of must be an odd number" });
+
+// Per-round best-of config: maps round number (as string) to best-of value
+export const roundBestOfSchema = z
+  .record(
+    z.string().regex(/^\d+$/, "Round key must be a number"),
+    bestOfValueSchema,
+  )
+  .optional();
+
+export type RoundBestOfConfig = z.infer<typeof roundBestOfSchema>;
+
 // Event tournament
 export const createEventTournamentSchema = z.object({
   eventId: uuidSchema,
@@ -594,7 +616,8 @@ export const createEventTournamentSchema = z.object({
     .enum([ParticipantType.INDIVIDUAL, ParticipantType.TEAM])
     .default(ParticipantType.INDIVIDUAL),
   seedingType: z.enum(["manual", "random"]),
-  bestOf: z.number().int().min(1).default(1),
+  bestOf: bestOfValueSchema.default(1),
+  roundBestOf: roundBestOfSchema,
   placementPointConfig: placementPointConfigSchema.optional(),
 });
 
@@ -620,6 +643,8 @@ export const updateEventTournamentSchema = z.object({
     .optional(),
   logo: z.string().optional(),
   seedingType: z.enum(["manual", "random"]).optional(),
+  bestOf: bestOfValueSchema.optional(),
+  roundBestOf: roundBestOfSchema,
   startDate: z
     .union([z.string(), z.date()])
     .pipe(z.coerce.date())
@@ -769,4 +794,79 @@ export const updateEventPlaceholderSchema = z.object({
       NAME_MAX_LENGTH,
       `Display name must be at most ${NAME_MAX_LENGTH} characters`,
     ),
+});
+
+// Discretionary awards
+export const discretionaryAwardRecipientSchema = z.object({
+  eventTeamId: uuidSchema,
+});
+
+export type DiscretionaryAwardRecipient = z.infer<
+  typeof discretionaryAwardRecipientSchema
+>;
+
+export const createDiscretionaryAwardSchema = z.object({
+  eventId: uuidSchema,
+  name: z
+    .string()
+    .min(1, "Name is required")
+    .max(
+      DISCRETIONARY_AWARD_NAME_MAX_LENGTH,
+      `Name must be at most ${DISCRETIONARY_AWARD_NAME_MAX_LENGTH} characters`,
+    ),
+  description: z
+    .string()
+    .min(1, "Description is required")
+    .max(
+      DISCRETIONARY_AWARD_DESCRIPTION_MAX_LENGTH,
+      `Description must be at most ${DISCRETIONARY_AWARD_DESCRIPTION_MAX_LENGTH} characters`,
+    ),
+  points: z.number("A number is required"),
+  recipients: z
+    .array(discretionaryAwardRecipientSchema)
+    .min(1, "At least one recipient is required")
+    .max(
+      MAX_DISCRETIONARY_AWARD_RECIPIENTS,
+      `At most ${MAX_DISCRETIONARY_AWARD_RECIPIENTS} recipients allowed`,
+    ),
+});
+
+export type CreateDiscretionaryAwardInput = z.infer<
+  typeof createDiscretionaryAwardSchema
+>;
+
+export const updateDiscretionaryAwardSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Name is required")
+    .max(
+      DISCRETIONARY_AWARD_NAME_MAX_LENGTH,
+      `Name must be at most ${DISCRETIONARY_AWARD_NAME_MAX_LENGTH} characters`,
+    )
+    .optional(),
+  description: z
+    .string()
+    .min(1, "Description is required")
+    .max(
+      DISCRETIONARY_AWARD_DESCRIPTION_MAX_LENGTH,
+      `Description must be at most ${DISCRETIONARY_AWARD_DESCRIPTION_MAX_LENGTH} characters`,
+    )
+    .optional(),
+  points: z.number("A number is required").optional(),
+  recipients: z
+    .array(discretionaryAwardRecipientSchema)
+    .min(1, "At least one recipient is required")
+    .max(
+      MAX_DISCRETIONARY_AWARD_RECIPIENTS,
+      `At most ${MAX_DISCRETIONARY_AWARD_RECIPIENTS} recipients allowed`,
+    )
+    .optional(),
+});
+
+export type UpdateDiscretionaryAwardInput = z.infer<
+  typeof updateDiscretionaryAwardSchema
+>;
+
+export const discretionaryAwardIdSchema = z.object({
+  awardId: uuidSchema,
 });

@@ -179,7 +179,31 @@ export default async function EventTournamentDetailPage({ params }: Props) {
             </div>
             <div>
               <dt className="text-muted-foreground">Best Of</dt>
-              <dd className="font-medium">{tournament.bestOf}</dd>
+              <dd className="font-medium">
+                {(() => {
+                  if (!tournament.roundBestOf) return tournament.bestOf;
+                  const config = JSON.parse(tournament.roundBestOf) as Record<
+                    string,
+                    number
+                  >;
+                  const entries = Object.entries(config).sort(
+                    ([a], [b]) => Number(a) - Number(b),
+                  );
+                  if (entries.length === 0) return tournament.bestOf;
+                  return (
+                    <span>
+                      {entries.map(([round, bo]) => (
+                        <span key={round} className="mr-2">
+                          R{round}: Bo{bo}
+                        </span>
+                      ))}
+                      <span className="text-muted-foreground">
+                        (default: Bo{tournament.bestOf})
+                      </span>
+                    </span>
+                  );
+                })()}
+              </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Participants</dt>
@@ -342,6 +366,8 @@ export default async function EventTournamentDetailPage({ params }: Props) {
                     ? parseH2HConfig(tournament.gameType.config)
                     : undefined
                 }
+                bestOf={tournament.bestOf}
+                roundBestOf={tournament.roundBestOf}
               />
             </CardContent>
           </Card>

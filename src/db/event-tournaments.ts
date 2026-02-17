@@ -178,7 +178,9 @@ export async function updateEventTournament(
       | "status"
       | "totalRounds"
       | "completedAt"
+      | "bestOf"
       | "placementPointConfig"
+      | "roundBestOf"
     >
   >,
   dbOrTx: DBOrTx = db,
@@ -497,6 +499,8 @@ export async function updateEventTournamentRoundMatch(
       | "isForfeit"
       | "participant1Score"
       | "participant2Score"
+      | "participant1Wins"
+      | "participant2Wins"
       | "nextMatchId"
       | "nextMatchSlot"
     >

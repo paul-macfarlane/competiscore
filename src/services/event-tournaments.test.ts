@@ -24,7 +24,9 @@ import {
   createEventMatch,
   createEventMatchParticipants,
   createEventPointEntries,
+  deleteEventMatch,
   getEventGameTypeById,
+  getEventMatchesByRoundMatchId,
   getEventParticipant,
   getTeamForUser,
 } from "@/db/events";
@@ -41,6 +43,7 @@ import {
   recordEventTournamentMatchResult,
   removeEventTournamentParticipant,
   setEventParticipantSeeds,
+  undoEventTournamentMatchResult,
   updateEventTournament,
 } from "./event-tournaments";
 import { TEST_IDS } from "./test-helpers";
@@ -58,6 +61,9 @@ vi.mock("@/db/events", () => ({
   createEventMatch: vi.fn(),
   createEventMatchParticipants: vi.fn(),
   createEventPointEntries: vi.fn(),
+  getEventMatchesByRoundMatchId: vi.fn(),
+  deleteEventMatch: vi.fn(),
+  deleteEventPointEntriesForTournament: vi.fn(),
 }));
 
 vi.mock("@/db/event-tournaments", () => ({
@@ -174,6 +180,8 @@ function mockTournament(overrides = {}) {
     status: "draft",
     seedingType: "random",
     bestOf: 1,
+    roundBestOf: null,
+    participantType: "individual",
     placementPointConfig: null,
     totalRounds: null,
     startDate: null,
@@ -235,6 +243,8 @@ function mockRoundMatch(overrides = {}) {
     isForfeit: false,
     participant1Score: null,
     participant2Score: null,
+    participant1Wins: 0,
+    participant2Wins: 0,
     nextMatchId: null,
     nextMatchSlot: null,
     createdAt: new Date(),
@@ -874,7 +884,7 @@ describe("recordEventTournamentMatchResult", () => {
     expect(result.error).toBe("Tournament is not in progress");
   });
 
-  it("returns error when match already has winner", async () => {
+  it("returns error when series already decided", async () => {
     mockRoundMatch({ winnerId: TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID });
     mockInProgressTournament();
     mockOrganizerMember();
@@ -884,7 +894,7 @@ describe("recordEventTournamentMatchResult", () => {
       winningSide: "side1",
       playedAt: new Date(),
     });
-    expect(result.error).toBe("This match already has a result");
+    expect(result.error).toBe("This series is already decided");
   });
 
   it("returns error when both participants not set", async () => {
@@ -977,6 +987,8 @@ describe("recordEventTournamentMatchResult", () => {
         isForfeit: false,
         participant1Score: null,
         participant2Score: null,
+        participant1Wins: 0,
+        participant2Wins: 0,
         nextMatchId,
         nextMatchSlot: 1,
         createdAt: new Date(),
@@ -997,6 +1009,8 @@ describe("recordEventTournamentMatchResult", () => {
         isForfeit: false,
         participant1Score: null,
         participant2Score: null,
+        participant1Wins: 0,
+        participant2Wins: 0,
         nextMatchId,
         nextMatchSlot: 1,
         createdAt: new Date(),
@@ -1017,6 +1031,8 @@ describe("recordEventTournamentMatchResult", () => {
         isForfeit: false,
         participant1Score: null,
         participant2Score: null,
+        participant1Wins: 0,
+        participant2Wins: 0,
         nextMatchId: null,
         nextMatchSlot: null,
         createdAt: new Date(),
@@ -1172,7 +1188,7 @@ describe("forfeitEventTournamentMatch", () => {
     );
   });
 
-  it("returns error when match already has winner", async () => {
+  it("returns error when series already has a result", async () => {
     mockRoundMatch({ winnerId: TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID });
     mockInProgressTournament();
     mockOrganizerMember();
@@ -1181,7 +1197,7 @@ describe("forfeitEventTournamentMatch", () => {
       tournamentMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
       forfeitParticipantId: TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID_2,
     });
-    expect(result.error).toBe("This match already has a result");
+    expect(result.error).toBe("This series already has a result");
   });
 
   it("returns error when forfeit participant not in match", async () => {
@@ -1228,6 +1244,8 @@ describe("forfeitEventTournamentMatch", () => {
         isForfeit: false,
         participant1Score: null,
         participant2Score: null,
+        participant1Wins: 0,
+        participant2Wins: 0,
         nextMatchId,
         nextMatchSlot: 1,
         createdAt: new Date(),
@@ -1248,6 +1266,8 @@ describe("forfeitEventTournamentMatch", () => {
         isForfeit: true,
         participant1Score: null,
         participant2Score: null,
+        participant1Wins: 0,
+        participant2Wins: 0,
         nextMatchId,
         nextMatchSlot: 1,
         createdAt: new Date(),
@@ -1268,6 +1288,8 @@ describe("forfeitEventTournamentMatch", () => {
         isForfeit: false,
         participant1Score: null,
         participant2Score: null,
+        participant1Wins: 0,
+        participant2Wins: 0,
         nextMatchId: null,
         nextMatchSlot: null,
         createdAt: new Date(),
@@ -1279,6 +1301,308 @@ describe("forfeitEventTournamentMatch", () => {
     const result = await forfeitEventTournamentMatch(TEST_IDS.USER_ID, {
       tournamentMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
       forfeitParticipantId: TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID,
+    });
+    expect(result.data?.eventTournamentId).toBe(TEST_IDS.EVENT_TOURNAMENT_ID);
+    expect(result.data?.eventId).toBe(TEST_IDS.EVENT_ID);
+  });
+});
+
+// =================== Series tracking (best-of-3) ===================
+
+describe("recordEventTournamentMatchResult (best-of series)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function setupSeriesTest(bestOf: number, roundBestOf?: string) {
+    mockRoundMatch();
+    mockInProgressTournament({ bestOf, roundBestOf });
+    mockOrganizerMember();
+    mockH2HGameType();
+
+    vi.mocked(createEventMatch).mockResolvedValue({
+      id: TEST_IDS.EVENT_MATCH_ID,
+      eventId: TEST_IDS.EVENT_ID,
+      eventGameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(),
+      recorderId: TEST_IDS.USER_ID,
+      createdAt: new Date(),
+    } as ReturnType<typeof createEventMatch> extends Promise<infer T>
+      ? T
+      : never);
+    vi.mocked(createEventMatchParticipants).mockResolvedValue([]);
+
+    vi.mocked(dbGetParticipantById).mockImplementation(
+      async (id) =>
+        ({
+          id,
+          eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+          eventTeamId:
+            id === TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID
+              ? TEST_IDS.EVENT_TEAM_ID
+              : TEST_IDS.EVENT_TEAM_ID_2,
+          seed: 1,
+          isEliminated: false,
+          eliminatedInRound: null,
+          finalPlacement: null,
+          createdAt: new Date(),
+        }) as ReturnType<typeof dbGetParticipantById> extends Promise<infer T>
+          ? NonNullable<T>
+          : never,
+    );
+
+    vi.mocked(dbUpdateRoundMatch).mockResolvedValue(
+      undefined as unknown as ReturnType<
+        typeof dbUpdateRoundMatch
+      > extends Promise<infer T>
+        ? T
+        : never,
+    );
+    vi.mocked(dbUpdateParticipant).mockResolvedValue(undefined);
+  }
+
+  it("records game 1 of best-of-3 without deciding series", async () => {
+    setupSeriesTest(3);
+
+    const result = await recordEventTournamentMatchResult(TEST_IDS.USER_ID, {
+      tournamentMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
+      winningSide: "side1",
+      playedAt: new Date(),
+    });
+    expect(result.data?.seriesComplete).toBe(false);
+    expect(result.data?.participant1Wins).toBe(1);
+    expect(result.data?.participant2Wins).toBe(0);
+  });
+
+  it("does not decide series at 1-1 in best-of-3", async () => {
+    mockRoundMatch({ participant1Wins: 0, participant2Wins: 1 });
+    mockInProgressTournament({ bestOf: 3 });
+    mockOrganizerMember();
+    mockH2HGameType();
+
+    vi.mocked(createEventMatch).mockResolvedValue({
+      id: TEST_IDS.EVENT_MATCH_ID,
+      eventId: TEST_IDS.EVENT_ID,
+      eventGameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(),
+      recorderId: TEST_IDS.USER_ID,
+      createdAt: new Date(),
+    } as ReturnType<typeof createEventMatch> extends Promise<infer T>
+      ? T
+      : never);
+    vi.mocked(createEventMatchParticipants).mockResolvedValue([]);
+    vi.mocked(dbGetParticipantById).mockImplementation(
+      async (id) =>
+        ({
+          id,
+          eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+          eventTeamId:
+            id === TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID
+              ? TEST_IDS.EVENT_TEAM_ID
+              : TEST_IDS.EVENT_TEAM_ID_2,
+          seed: 1,
+          isEliminated: false,
+          eliminatedInRound: null,
+          finalPlacement: null,
+          createdAt: new Date(),
+        }) as ReturnType<typeof dbGetParticipantById> extends Promise<infer T>
+          ? NonNullable<T>
+          : never,
+    );
+    vi.mocked(dbUpdateRoundMatch).mockResolvedValue(
+      undefined as unknown as ReturnType<
+        typeof dbUpdateRoundMatch
+      > extends Promise<infer T>
+        ? T
+        : never,
+    );
+    vi.mocked(dbUpdateParticipant).mockResolvedValue(undefined);
+
+    const result = await recordEventTournamentMatchResult(TEST_IDS.USER_ID, {
+      tournamentMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
+      winningSide: "side1",
+      playedAt: new Date(),
+    });
+    expect(result.data?.seriesComplete).toBe(false);
+    expect(result.data?.participant1Wins).toBe(1);
+    expect(result.data?.participant2Wins).toBe(1);
+  });
+
+  it("uses roundBestOf config over default bestOf", async () => {
+    // Default bestOf is 1, but round 1 is Bo3
+    setupSeriesTest(1, JSON.stringify({ "1": 3 }));
+
+    const result = await recordEventTournamentMatchResult(TEST_IDS.USER_ID, {
+      tournamentMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
+      winningSide: "side1",
+      playedAt: new Date(),
+    });
+    expect(result.data?.seriesComplete).toBe(false);
+    expect(result.data?.participant1Wins).toBe(1);
+  });
+
+  it("rejects roundBestOf with even best-of values", async () => {
+    const result = await createEventTournament(TEST_IDS.USER_ID, {
+      eventId: TEST_IDS.EVENT_ID,
+      gameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      name: "Bad Config",
+      seedingType: "random",
+      bestOf: 1,
+      roundBestOf: { "1": 2 },
+    });
+    expect(result.error).toBe("Validation failed");
+    expect(result.fieldErrors).toBeDefined();
+  });
+});
+
+// =================== undoEventTournamentMatchResult ===================
+
+describe("undoEventTournamentMatchResult", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns error when no games to undo", async () => {
+    mockRoundMatch({
+      winnerId: null,
+      participant1Wins: 0,
+      participant2Wins: 0,
+    });
+    mockInProgressTournament();
+    mockOrganizerMember();
+    vi.mocked(getEventMatchesByRoundMatchId).mockResolvedValue([]);
+
+    const result = await undoEventTournamentMatchResult(TEST_IDS.USER_ID, {
+      tournamentMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
+    });
+    expect(result.error).toBe("This match does not have a result to undo");
+  });
+
+  it("undoes a mid-series game (decrements wins)", async () => {
+    mockRoundMatch({
+      winnerId: null,
+      participant1Wins: 1,
+      participant2Wins: 0,
+      eventMatchId: TEST_IDS.EVENT_MATCH_ID,
+    });
+    mockInProgressTournament({ bestOf: 3 });
+    mockOrganizerMember();
+
+    vi.mocked(getEventMatchesByRoundMatchId).mockResolvedValue([
+      {
+        id: TEST_IDS.EVENT_MATCH_ID,
+        eventId: TEST_IDS.EVENT_ID,
+        eventGameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+        playedAt: new Date(),
+        recorderId: TEST_IDS.USER_ID,
+        createdAt: new Date(),
+        eventTournamentRoundMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
+      } as ReturnType<typeof getEventMatchesByRoundMatchId> extends Promise<
+        infer T
+      >
+        ? T[number]
+        : never,
+    ]);
+    vi.mocked(deleteEventMatch).mockResolvedValue(true);
+    vi.mocked(dbUpdateRoundMatch).mockResolvedValue(
+      undefined as unknown as ReturnType<
+        typeof dbUpdateRoundMatch
+      > extends Promise<infer T>
+        ? T
+        : never,
+    );
+
+    const result = await undoEventTournamentMatchResult(TEST_IDS.USER_ID, {
+      tournamentMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
+    });
+    expect(result.data?.eventTournamentId).toBe(TEST_IDS.EVENT_TOURNAMENT_ID);
+    expect(result.data?.eventId).toBe(TEST_IDS.EVENT_ID);
+  });
+
+  it("undoes a series-deciding game (un-advances winner)", async () => {
+    const nextMatchId = "c53e4567-e89b-12d3-a456-426614174099";
+
+    mockRoundMatch({
+      winnerId: TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID,
+      participant1Wins: 2,
+      participant2Wins: 1,
+      eventMatchId: TEST_IDS.EVENT_MATCH_ID,
+      nextMatchId,
+      nextMatchSlot: 1,
+    });
+    mockInProgressTournament({ bestOf: 3 });
+    mockOrganizerMember();
+
+    vi.mocked(getEventMatchesByRoundMatchId).mockResolvedValue([
+      {
+        id: TEST_IDS.EVENT_MATCH_ID,
+        eventId: TEST_IDS.EVENT_ID,
+        eventGameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+        playedAt: new Date(),
+        recorderId: TEST_IDS.USER_ID,
+        createdAt: new Date(),
+        eventTournamentRoundMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
+      } as ReturnType<typeof getEventMatchesByRoundMatchId> extends Promise<
+        infer T
+      >
+        ? T[number]
+        : never,
+    ]);
+
+    vi.mocked(deleteEventMatch).mockResolvedValue(true);
+    vi.mocked(dbUpdateRoundMatch).mockResolvedValue(
+      undefined as unknown as ReturnType<
+        typeof dbUpdateRoundMatch
+      > extends Promise<infer T>
+        ? T
+        : never,
+    );
+    vi.mocked(dbUpdateParticipant).mockResolvedValue(undefined);
+
+    vi.mocked(dbGetRoundMatchById)
+      .mockResolvedValueOnce({
+        id: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
+        eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+        round: 1,
+        position: 1,
+        participant1Id: TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID,
+        participant2Id: TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID_2,
+        winnerId: TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID,
+        eventMatchId: TEST_IDS.EVENT_MATCH_ID,
+        isBye: false,
+        isForfeit: false,
+        participant1Score: null,
+        participant2Score: null,
+        participant1Wins: 2,
+        participant2Wins: 1,
+        nextMatchId,
+        nextMatchSlot: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as ReturnType<typeof dbGetRoundMatchById> extends Promise<infer T>
+        ? NonNullable<T>
+        : never)
+      .mockResolvedValueOnce({
+        id: nextMatchId,
+        eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+        round: 2,
+        position: 1,
+        participant1Id: TEST_IDS.EVENT_TOURNAMENT_PARTICIPANT_ID,
+        participant2Id: null,
+        winnerId: null,
+        eventMatchId: null,
+        isBye: false,
+        isForfeit: false,
+        participant1Score: null,
+        participant2Score: null,
+        participant1Wins: 0,
+        participant2Wins: 0,
+        nextMatchId: null,
+        nextMatchSlot: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as ReturnType<typeof dbGetRoundMatchById> extends Promise<infer T>
+        ? NonNullable<T>
+        : never);
+
+    const result = await undoEventTournamentMatchResult(TEST_IDS.USER_ID, {
+      tournamentMatchId: TEST_IDS.EVENT_TOURNAMENT_ROUND_MATCH_ID,
     });
     expect(result.data?.eventTournamentId).toBe(TEST_IDS.EVENT_TOURNAMENT_ID);
     expect(result.data?.eventId).toBe(TEST_IDS.EVENT_ID);

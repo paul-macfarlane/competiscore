@@ -278,10 +278,17 @@ export async function closeHighScoreSession(
       return a.score - b.score;
     });
 
-    // Build a map of teamId -> best placement
+    // Build a map of teamId -> { best placement, individual who achieved it }
     // Each entry's submitter belongs to a team; if same team has multiple entries,
     // only their best placement counts.
-    const teamBestPlacement = new Map<string, number>();
+    const teamBestPlacement = new Map<
+      string,
+      {
+        placement: number;
+        userId: string | null;
+        eventPlaceholderParticipantId: string | null;
+      }
+    >();
 
     for (let i = 0; i < sortedEntries.length; i++) {
       const entry = sortedEntries[i];
@@ -305,8 +312,12 @@ export async function closeHighScoreSession(
 
       if (teamId) {
         const currentBest = teamBestPlacement.get(teamId);
-        if (currentBest === undefined || placement < currentBest) {
-          teamBestPlacement.set(teamId, placement);
+        if (currentBest === undefined || placement < currentBest.placement) {
+          teamBestPlacement.set(teamId, {
+            placement,
+            userId: entry.userId,
+            eventPlaceholderParticipantId: entry.eventPlaceholderParticipantId,
+          });
         }
       }
     }
@@ -319,29 +330,18 @@ export async function closeHighScoreSession(
     await withTransaction(async (tx) => {
       await dbCloseHighScoreSession(sessionId, userId, tx);
 
-      const pointEntries: Array<{
-        eventId: string;
-        category: typeof EventPointCategory.HIGH_SCORE;
-        outcome: typeof EventPointOutcome.PLACEMENT;
-        eventTeamId: string;
-        userId: null;
-        eventPlaceholderParticipantId: null;
-        eventMatchId: null;
-        eventHighScoreSessionId: string;
-        eventTournamentId: null;
-        points: number;
-      }> = [];
+      const pointEntries = [];
 
-      for (const [teamId, placement] of teamBestPlacement) {
-        const points = configMap.get(placement);
+      for (const [teamId, best] of teamBestPlacement) {
+        const points = configMap.get(best.placement);
         if (points !== undefined) {
           pointEntries.push({
             eventId: session.eventId,
             category: EventPointCategory.HIGH_SCORE,
             outcome: EventPointOutcome.PLACEMENT,
             eventTeamId: teamId,
-            userId: null,
-            eventPlaceholderParticipantId: null,
+            userId: best.userId,
+            eventPlaceholderParticipantId: best.eventPlaceholderParticipantId,
             eventMatchId: null,
             eventHighScoreSessionId: sessionId,
             eventTournamentId: null,

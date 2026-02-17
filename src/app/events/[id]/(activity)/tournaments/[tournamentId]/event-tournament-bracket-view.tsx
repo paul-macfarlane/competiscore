@@ -47,6 +47,8 @@ type BracketMatch = {
   participant2?: BracketParticipant | null;
   participant1Score: number | null;
   participant2Score: number | null;
+  participant1Wins: number;
+  participant2Wins: number;
   winnerId: string | null;
   eventMatchId: string | null;
 };
@@ -60,7 +62,26 @@ type Props = {
   tournamentId: string;
   isTeamTournament?: boolean;
   config?: H2HConfig;
+  bestOf: number;
+  roundBestOf: string | null;
 };
+
+function getRoundBestOf(
+  round: number,
+  bestOf: number,
+  roundBestOf: string | null,
+): number {
+  if (roundBestOf) {
+    try {
+      const config = JSON.parse(roundBestOf) as Record<string, number>;
+      const value = config[String(round)];
+      if (typeof value === "number" && value >= 1) return value;
+    } catch {
+      // fall through
+    }
+  }
+  return bestOf;
+}
 
 function getRoundLabel(round: number, totalRounds: number): string {
   if (round === totalRounds) return "Final";
@@ -86,6 +107,8 @@ export function EventTournamentBracketView({
   canRecordMatches,
   isTeamTournament,
   config,
+  bestOf: defaultBestOf,
+  roundBestOf,
 }: Props) {
   const router = useRouter();
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null);
@@ -104,7 +127,7 @@ export function EventTournamentBracketView({
 
   const handleMatchClick = (match: BracketMatch) => {
     if (!canRecordMatches || !config) return;
-    if (match.eventMatchId != null) return;
+    if (match.winnerId != null) return;
     if (!match.participant1 || !match.participant2) return;
     setSelectedMatch(match);
     setDialogOpen(true);
@@ -157,7 +180,7 @@ export function EventTournamentBracketView({
   const isClickable = (match: BracketMatch) =>
     canRecordMatches &&
     config &&
-    match.eventMatchId == null &&
+    match.winnerId == null &&
     match.participant1 != null &&
     match.participant2 != null;
 
@@ -182,6 +205,11 @@ export function EventTournamentBracketView({
                     onClick={() => handleMatchClick(match)}
                     round={round}
                     totalRounds={totalRounds}
+                    roundBestOf={getRoundBestOf(
+                      round,
+                      defaultBestOf,
+                      roundBestOf,
+                    )}
                   />
                 ))}
               </div>
@@ -193,7 +221,23 @@ export function EventTournamentBracketView({
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Record Match Result</DialogTitle>
+              <DialogTitle>
+                {selectedMatch
+                  ? (() => {
+                      const bo = getRoundBestOf(
+                        selectedMatch.round,
+                        defaultBestOf,
+                        roundBestOf,
+                      );
+                      if (bo <= 1) return "Record Match Result";
+                      const gameNum =
+                        selectedMatch.participant1Wins +
+                        selectedMatch.participant2Wins +
+                        1;
+                      return `Record Game ${gameNum} of Best of ${bo} (${selectedMatch.participant1Wins}-${selectedMatch.participant2Wins})`;
+                    })()
+                  : "Record Match Result"}
+              </DialogTitle>
             </DialogHeader>
             {selectedMatch && tournamentMatch && (
               <RecordH2HMatchForm
@@ -222,6 +266,7 @@ function MatchCard({
   onClick,
   round,
   totalRounds,
+  roundBestOf,
 }: {
   match: BracketMatch;
   canManage: boolean;
@@ -230,10 +275,13 @@ function MatchCard({
   onClick?: () => void;
   round: number;
   totalRounds: number;
+  roundBestOf: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const isComplete = match.eventMatchId != null;
+  const isSeriesDecided = match.winnerId != null;
+  const hasGames = match.participant1Wins > 0 || match.participant2Wins > 0;
+  const isMultiGame = roundBestOf > 1;
 
   const handleUndo = () => {
     startTransition(async () => {
@@ -260,7 +308,7 @@ function MatchCard({
       <CardContent className="space-y-1 p-3">
         <ParticipantRow
           participant={match.participant1}
-          score={match.participant1Score}
+          score={isMultiGame ? match.participant1Wins : match.participant1Score}
           isWinner={
             match.winnerId != null && match.participant1?.id === match.winnerId
           }
@@ -269,20 +317,20 @@ function MatchCard({
         <div className="border-muted border-t" />
         <ParticipantRow
           participant={match.participant2}
-          score={match.participant2Score}
+          score={isMultiGame ? match.participant2Wins : match.participant2Score}
           isWinner={
             match.winnerId != null && match.participant2?.id === match.winnerId
           }
           isTeamTournament={isTeamTournament}
         />
       </CardContent>
-      {isComplete && round === totalRounds && (
+      {isSeriesDecided && round === totalRounds && (
         <div className="border-t px-3 py-1 flex items-center justify-center gap-1 text-xs font-medium text-rank-gold-text bg-rank-gold-bg">
           <Trophy className="h-3 w-3" />
           Champion
         </div>
       )}
-      {isComplete && (
+      {isSeriesDecided && (
         <div className="border-t px-3 py-1 flex items-center justify-center gap-2">
           <Badge variant="outline" className="text-xs">
             Complete
@@ -304,10 +352,33 @@ function MatchCard({
           )}
         </div>
       )}
+      {!isSeriesDecided && hasGames && isMultiGame && (
+        <div className="border-t px-3 py-1 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <span>
+            Series: {match.participant1Wins}-{match.participant2Wins} (Bo
+            {roundBestOf})
+          </span>
+          {canManage && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUndo();
+              }}
+              disabled={isPending}
+              title="Undo last game"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
       {clickable && (
         <div className="border-t px-3 py-1 flex items-center justify-center gap-1 text-xs font-medium text-primary">
           <Pencil className="h-3 w-3" />
-          Record Result
+          {hasGames && isMultiGame ? "Record Next Game" : "Record Result"}
         </div>
       )}
     </Card>

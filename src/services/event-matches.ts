@@ -273,74 +273,60 @@ export async function recordEventH2HMatch(
     const hasPoints = winPoints !== undefined || lossPoints !== undefined;
 
     if (hasPoints) {
-      const pointEntries: Array<{
-        eventId: string;
-        category: typeof EventPointCategory.H2H_MATCH;
-        outcome: typeof EventPointOutcome.WIN;
-        eventTeamId: string;
-        userId: null;
-        eventPlaceholderParticipantId: null;
-        eventMatchId: string;
-        eventHighScoreSessionId: null;
-        eventTournamentId: null;
-        points: number;
-      }> = [];
+      const buildSidePointEntries = (
+        sideResolved: typeof side1Resolved,
+        sideResult: typeof side1Result,
+      ) => {
+        const teamGroups = new Map<
+          string,
+          Array<(typeof sideResolved)[number]>
+        >();
+        for (const p of sideResolved) {
+          const teamId = p.team!.id;
+          const group = teamGroups.get(teamId) ?? [];
+          group.push(p);
+          teamGroups.set(teamId, group);
+        }
 
-      const side1TeamIds = new Set(side1Resolved.map((p) => p.team!.id));
-      for (const teamId of side1TeamIds) {
-        const points = isDraw
-          ? (drawPoints ?? 0)
-          : side1Result === MatchResult.WIN
-            ? (winPoints ?? 0)
-            : (lossPoints ?? 0);
-        const outcome = isDraw
-          ? EventPointOutcome.DRAW
-          : side1Result === MatchResult.WIN
-            ? EventPointOutcome.WIN
-            : EventPointOutcome.LOSS;
+        const entries = [];
+        for (const [teamId, group] of teamGroups) {
+          const points = isDraw
+            ? (drawPoints ?? 0)
+            : sideResult === MatchResult.WIN
+              ? (winPoints ?? 0)
+              : (lossPoints ?? 0);
+          const outcome = isDraw
+            ? EventPointOutcome.DRAW
+            : sideResult === MatchResult.WIN
+              ? EventPointOutcome.WIN
+              : EventPointOutcome.LOSS;
 
-        pointEntries.push({
-          eventId,
-          category:
-            EventPointCategory.H2H_MATCH as typeof EventPointCategory.H2H_MATCH,
-          outcome: outcome as typeof EventPointOutcome.WIN,
-          eventTeamId: teamId,
-          userId: null,
-          eventPlaceholderParticipantId: null,
-          eventMatchId: match.id,
-          eventHighScoreSessionId: null,
-          eventTournamentId: null,
-          points,
-        });
-      }
+          // Store individual info when exactly one non-team participant per team
+          const solo =
+            !isTeamParticipant && group.length === 1 ? group[0] : null;
 
-      const side2TeamIds = new Set(side2Resolved.map((p) => p.team!.id));
-      for (const teamId of side2TeamIds) {
-        const points = isDraw
-          ? (drawPoints ?? 0)
-          : side2Result === MatchResult.WIN
-            ? (winPoints ?? 0)
-            : (lossPoints ?? 0);
-        const outcome = isDraw
-          ? EventPointOutcome.DRAW
-          : side2Result === MatchResult.WIN
-            ? EventPointOutcome.WIN
-            : EventPointOutcome.LOSS;
+          entries.push({
+            eventId,
+            category:
+              EventPointCategory.H2H_MATCH as typeof EventPointCategory.H2H_MATCH,
+            outcome: outcome as typeof EventPointOutcome.WIN,
+            eventTeamId: teamId,
+            userId: solo?.userId ?? null,
+            eventPlaceholderParticipantId:
+              solo?.eventPlaceholderParticipantId ?? null,
+            eventMatchId: match.id,
+            eventHighScoreSessionId: null,
+            eventTournamentId: null,
+            points,
+          });
+        }
+        return entries;
+      };
 
-        pointEntries.push({
-          eventId,
-          category:
-            EventPointCategory.H2H_MATCH as typeof EventPointCategory.H2H_MATCH,
-          outcome: outcome as typeof EventPointOutcome.WIN,
-          eventTeamId: teamId,
-          userId: null,
-          eventPlaceholderParticipantId: null,
-          eventMatchId: match.id,
-          eventHighScoreSessionId: null,
-          eventTournamentId: null,
-          points,
-        });
-      }
+      const pointEntries = [
+        ...buildSidePointEntries(side1Resolved, side1Result),
+        ...buildSidePointEntries(side2Resolved, side2Result),
+      ];
 
       await dbCreateEventPointEntries(pointEntries, tx);
     }
@@ -474,8 +460,10 @@ export async function recordEventFFAMatch(
         outcome:
           EventPointOutcome.PLACEMENT as typeof EventPointOutcome.PLACEMENT,
         eventTeamId: p.team!.id,
-        userId: null,
-        eventPlaceholderParticipantId: null,
+        userId: isTeamFFA ? null : (p.userId ?? null),
+        eventPlaceholderParticipantId: isTeamFFA
+          ? null
+          : (p.eventPlaceholderParticipantId ?? null),
         eventMatchId: match.id,
         eventHighScoreSessionId: null,
         eventTournamentId: null,

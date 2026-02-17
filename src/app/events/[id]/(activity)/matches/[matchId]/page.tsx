@@ -373,13 +373,22 @@ function ParticipantRow({
           participant={
             {
               user: participant.user,
+              team: participant.team,
               placeholderMember: participant.placeholderParticipant,
             } as ParticipantData
           }
           showAvatar
           showUsername
-          teamName={participant.team?.name}
-          teamColor={participant.team?.color}
+          teamName={
+            participant.user || participant.placeholderParticipant
+              ? participant.team?.name
+              : undefined
+          }
+          teamColor={
+            participant.user || participant.placeholderParticipant
+              ? participant.team?.color
+              : undefined
+          }
           size="lg"
           align={align}
         />

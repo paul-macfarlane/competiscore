@@ -4,6 +4,7 @@ import { and, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { DBOrTx, db } from "./index";
 import {
   Event,
+  EventDiscretionaryAward,
   EventGameType,
   EventHighScoreEntry,
   EventHighScoreSession,
@@ -15,6 +16,7 @@ import {
   EventTeam,
   EventTeamMember,
   NewEvent,
+  NewEventDiscretionaryAward,
   NewEventGameType,
   NewEventHighScoreEntry,
   NewEventHighScoreSession,
@@ -28,6 +30,7 @@ import {
   User,
   event,
   eventColumns,
+  eventDiscretionaryAward,
   eventGameType,
   eventHighScoreEntry,
   eventHighScoreEntryColumns,
@@ -144,6 +147,11 @@ export type EventActivityItem = {
   type: "match" | "high_score_session";
   date: Date;
   gameTypeName: string;
+};
+
+export type DiscretionaryAwardWithDetails = EventDiscretionaryAward & {
+  createdBy: Pick<User, "id" | "name" | "username" | "image">;
+  recipientTeams: Pick<EventTeam, "id" | "name" | "color">[];
 };
 
 // ============================================================
@@ -940,6 +948,17 @@ export async function getEventMatchById(
   return result[0];
 }
 
+export async function getEventMatchesByRoundMatchId(
+  roundMatchId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<EventMatch[]> {
+  return await dbOrTx
+    .select()
+    .from(eventMatch)
+    .where(eq(eventMatch.eventTournamentRoundMatchId, roundMatchId))
+    .orderBy(desc(eventMatch.createdAt));
+}
+
 export async function deleteEventMatch(
   id: string,
   dbOrTx: DBOrTx = db,
@@ -1368,6 +1387,7 @@ export async function getPointEntriesForHighScoreSessions(
       eventMatchId: eventPointEntry.eventMatchId,
       eventHighScoreSessionId: eventPointEntry.eventHighScoreSessionId,
       eventTournamentId: eventPointEntry.eventTournamentId,
+      eventDiscretionaryAwardId: eventPointEntry.eventDiscretionaryAwardId,
       points: eventPointEntry.points,
       createdAt: eventPointEntry.createdAt,
       teamName: eventTeam.name,
@@ -1396,6 +1416,7 @@ export async function getPointEntriesForGameType(
       eventMatchId: eventPointEntry.eventMatchId,
       eventHighScoreSessionId: eventPointEntry.eventHighScoreSessionId,
       eventTournamentId: eventPointEntry.eventTournamentId,
+      eventDiscretionaryAwardId: eventPointEntry.eventDiscretionaryAwardId,
       points: eventPointEntry.points,
       createdAt: eventPointEntry.createdAt,
       teamName: eventTeam.name,
@@ -1692,4 +1713,200 @@ export async function getEventActivity(
   const items = combined.slice(offset, offset + limit);
 
   return { items, totalCount };
+}
+
+// ============================================================
+// Discretionary Awards
+// ============================================================
+
+export async function createDiscretionaryAward(
+  data: Omit<NewEventDiscretionaryAward, "id" | "createdAt" | "updatedAt">,
+  dbOrTx: DBOrTx = db,
+): Promise<EventDiscretionaryAward> {
+  const result = await dbOrTx
+    .insert(eventDiscretionaryAward)
+    .values(data)
+    .returning();
+  return result[0];
+}
+
+export async function getDiscretionaryAwardById(
+  awardId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<EventDiscretionaryAward | undefined> {
+  const result = await dbOrTx
+    .select()
+    .from(eventDiscretionaryAward)
+    .where(eq(eventDiscretionaryAward.id, awardId))
+    .limit(1);
+  return result[0];
+}
+
+export async function getEventDiscretionaryAwards(
+  eventId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<DiscretionaryAwardWithDetails[]> {
+  const awards = await dbOrTx
+    .select({
+      id: eventDiscretionaryAward.id,
+      eventId: eventDiscretionaryAward.eventId,
+      name: eventDiscretionaryAward.name,
+      description: eventDiscretionaryAward.description,
+      points: eventDiscretionaryAward.points,
+      createdByUserId: eventDiscretionaryAward.createdByUserId,
+      createdAt: eventDiscretionaryAward.createdAt,
+      updatedAt: eventDiscretionaryAward.updatedAt,
+      creatorName: user.name,
+      creatorUsername: user.username,
+      creatorImage: user.image,
+    })
+    .from(eventDiscretionaryAward)
+    .innerJoin(user, eq(eventDiscretionaryAward.createdByUserId, user.id))
+    .where(eq(eventDiscretionaryAward.eventId, eventId))
+    .orderBy(desc(eventDiscretionaryAward.createdAt));
+
+  if (awards.length === 0) return [];
+
+  const awardIds = awards.map((a) => a.id);
+  const pointEntries = await dbOrTx
+    .select({
+      awardId: eventPointEntry.eventDiscretionaryAwardId,
+      teamId: eventTeam.id,
+      teamName: eventTeam.name,
+      teamColor: eventTeam.color,
+    })
+    .from(eventPointEntry)
+    .innerJoin(eventTeam, eq(eventPointEntry.eventTeamId, eventTeam.id))
+    .where(inArray(eventPointEntry.eventDiscretionaryAwardId, awardIds));
+
+  const teamsByAward = new Map<
+    string,
+    Pick<EventTeam, "id" | "name" | "color">[]
+  >();
+  for (const entry of pointEntries) {
+    if (!entry.awardId) continue;
+    const teams = teamsByAward.get(entry.awardId) ?? [];
+    if (!teams.some((t) => t.id === entry.teamId)) {
+      teams.push({
+        id: entry.teamId,
+        name: entry.teamName,
+        color: entry.teamColor,
+      });
+    }
+    teamsByAward.set(entry.awardId, teams);
+  }
+
+  return awards.map((award) => ({
+    id: award.id,
+    eventId: award.eventId,
+    name: award.name,
+    description: award.description,
+    points: award.points,
+    createdByUserId: award.createdByUserId,
+    createdAt: award.createdAt,
+    updatedAt: award.updatedAt,
+    createdBy: {
+      id: award.createdByUserId,
+      name: award.creatorName,
+      username: award.creatorUsername,
+      image: award.creatorImage,
+    },
+    recipientTeams: teamsByAward.get(award.id) ?? [],
+  }));
+}
+
+export async function updateDiscretionaryAward(
+  awardId: string,
+  data: Partial<
+    Pick<EventDiscretionaryAward, "name" | "description" | "points">
+  >,
+  dbOrTx: DBOrTx = db,
+): Promise<EventDiscretionaryAward> {
+  const result = await dbOrTx
+    .update(eventDiscretionaryAward)
+    .set(data)
+    .where(eq(eventDiscretionaryAward.id, awardId))
+    .returning();
+  return result[0];
+}
+
+export async function deleteDiscretionaryAward(
+  awardId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .delete(eventDiscretionaryAward)
+    .where(eq(eventDiscretionaryAward.id, awardId));
+}
+
+export type EnrichedPointEntry = {
+  id: string;
+  eventId: string;
+  category: string;
+  outcome: string;
+  points: number;
+  createdAt: Date;
+  eventTeamId: string | null;
+  teamName: string | null;
+  teamColor: string | null;
+  userId: string | null;
+  userName: string | null;
+  userUsername: string | null;
+  userImage: string | null;
+  eventPlaceholderParticipantId: string | null;
+  placeholderDisplayName: string | null;
+  eventMatchId: string | null;
+  eventHighScoreSessionId: string | null;
+  eventTournamentId: string | null;
+  eventDiscretionaryAwardId: string | null;
+};
+
+export async function getEnrichedEventPointEntries(
+  eventId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<EnrichedPointEntry[]> {
+  return await dbOrTx
+    .select({
+      id: eventPointEntry.id,
+      eventId: eventPointEntry.eventId,
+      category: eventPointEntry.category,
+      outcome: eventPointEntry.outcome,
+      points: eventPointEntry.points,
+      createdAt: eventPointEntry.createdAt,
+      eventTeamId: eventPointEntry.eventTeamId,
+      teamName: eventTeam.name,
+      teamColor: eventTeam.color,
+      userId: eventPointEntry.userId,
+      userName: user.name,
+      userUsername: user.username,
+      userImage: user.image,
+      eventPlaceholderParticipantId:
+        eventPointEntry.eventPlaceholderParticipantId,
+      placeholderDisplayName: eventPlaceholderParticipant.displayName,
+      eventMatchId: eventPointEntry.eventMatchId,
+      eventHighScoreSessionId: eventPointEntry.eventHighScoreSessionId,
+      eventTournamentId: eventPointEntry.eventTournamentId,
+      eventDiscretionaryAwardId: eventPointEntry.eventDiscretionaryAwardId,
+    })
+    .from(eventPointEntry)
+    .leftJoin(eventTeam, eq(eventPointEntry.eventTeamId, eventTeam.id))
+    .leftJoin(user, eq(eventPointEntry.userId, user.id))
+    .leftJoin(
+      eventPlaceholderParticipant,
+      eq(
+        eventPointEntry.eventPlaceholderParticipantId,
+        eventPlaceholderParticipant.id,
+      ),
+    )
+    .where(eq(eventPointEntry.eventId, eventId))
+    .orderBy(eventPointEntry.createdAt);
+}
+
+export async function deleteEventPointEntriesForDiscretionaryAward(
+  awardId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .delete(eventPointEntry)
+    .where(eq(eventPointEntry.eventDiscretionaryAwardId, awardId));
 }

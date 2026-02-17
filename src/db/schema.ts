@@ -1511,6 +1511,7 @@ export const eventMatch = pgTable(
     eventGameTypeId: text("event_game_type_id")
       .notNull()
       .references(() => eventGameType.id, { onDelete: "cascade" }),
+    eventTournamentRoundMatchId: text("event_tournament_round_match_id"),
     playedAt: timestamp("played_at").notNull(),
     recorderId: text("recorder_id")
       .notNull()
@@ -1521,6 +1522,7 @@ export const eventMatch = pgTable(
     index("event_match_event_idx").on(table.eventId),
     index("event_match_game_type_idx").on(table.eventGameTypeId),
     index("event_match_played_at_idx").on(table.playedAt),
+    index("event_match_round_match_idx").on(table.eventTournamentRoundMatchId),
   ],
 );
 
@@ -1664,6 +1666,7 @@ export const eventPointCategoryEnum = pgEnum("event_point_category", [
   EventPointCategory.FFA_MATCH,
   EventPointCategory.HIGH_SCORE,
   EventPointCategory.TOURNAMENT,
+  EventPointCategory.DISCRETIONARY,
 ]);
 
 export const eventPointOutcomeEnum = pgEnum("event_point_outcome", [
@@ -1672,7 +1675,42 @@ export const eventPointOutcomeEnum = pgEnum("event_point_outcome", [
   EventPointOutcome.DRAW,
   EventPointOutcome.PLACEMENT,
   EventPointOutcome.SUBMISSION,
+  EventPointOutcome.AWARD,
 ]);
+
+export const eventDiscretionaryAward = pgTable(
+  "event_discretionary_award",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    points: real("points").notNull(),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("event_discretionary_award_event_idx").on(table.eventId),
+    index("event_discretionary_award_created_by_idx").on(table.createdByUserId),
+  ],
+);
+
+export type EventDiscretionaryAward = InferSelectModel<
+  typeof eventDiscretionaryAward
+>;
+export type NewEventDiscretionaryAward = InferInsertModel<
+  typeof eventDiscretionaryAward
+>;
 
 export const eventPointEntry = pgTable(
   "event_point_entry",
@@ -1703,6 +1741,10 @@ export const eventPointEntry = pgTable(
       () => eventTournament.id,
       { onDelete: "cascade" },
     ),
+    eventDiscretionaryAwardId: text("event_discretionary_award_id").references(
+      () => eventDiscretionaryAward.id,
+      { onDelete: "cascade" },
+    ),
     points: real("points").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -1713,6 +1755,9 @@ export const eventPointEntry = pgTable(
     index("event_point_entry_match_idx").on(table.eventMatchId),
     index("event_point_entry_session_idx").on(table.eventHighScoreSessionId),
     index("event_point_entry_tournament_idx").on(table.eventTournamentId),
+    index("event_point_entry_discretionary_idx").on(
+      table.eventDiscretionaryAwardId,
+    ),
   ],
 );
 
@@ -1743,6 +1788,7 @@ export const eventTournament = pgTable(
     participantType: text("participant_type").notNull().default("individual"),
     seedingType: seedingTypeEnum("seeding_type").notNull(),
     bestOf: integer("best_of").notNull().default(1),
+    roundBestOf: text("round_best_of"),
     placementPointConfig: text("placement_point_config"),
     totalRounds: integer("total_rounds"),
     startDate: timestamp("start_date"),
@@ -1831,6 +1877,8 @@ export const eventTournamentRoundMatch = pgTable(
     isForfeit: boolean("is_forfeit").default(false).notNull(),
     participant1Score: real("participant1_score"),
     participant2Score: real("participant2_score"),
+    participant1Wins: integer("participant1_wins").notNull().default(0),
+    participant2Wins: integer("participant2_wins").notNull().default(0),
     nextMatchId: text("next_match_id"),
     nextMatchSlot: integer("next_match_slot"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1873,6 +1921,7 @@ export const eventRelations = relations(event, ({ one, many }) => ({
   highScoreSessions: many(eventHighScoreSession),
   pointEntries: many(eventPointEntry),
   tournaments: many(eventTournament),
+  discretionaryAwards: many(eventDiscretionaryAward),
 }));
 
 export const eventParticipantRelations = relations(
@@ -2061,6 +2110,21 @@ export const eventHighScoreEntryRelations = relations(
   }),
 );
 
+export const eventDiscretionaryAwardRelations = relations(
+  eventDiscretionaryAward,
+  ({ one, many }) => ({
+    event: one(event, {
+      fields: [eventDiscretionaryAward.eventId],
+      references: [event.id],
+    }),
+    createdBy: one(user, {
+      fields: [eventDiscretionaryAward.createdByUserId],
+      references: [user.id],
+    }),
+    pointEntries: many(eventPointEntry),
+  }),
+);
+
 export const eventPointEntryRelations = relations(
   eventPointEntry,
   ({ one }) => ({
@@ -2091,6 +2155,10 @@ export const eventPointEntryRelations = relations(
     tournament: one(eventTournament, {
       fields: [eventPointEntry.eventTournamentId],
       references: [eventTournament.id],
+    }),
+    discretionaryAward: one(eventDiscretionaryAward, {
+      fields: [eventPointEntry.eventDiscretionaryAwardId],
+      references: [eventDiscretionaryAward.id],
     }),
   }),
 );
@@ -2188,6 +2256,9 @@ export const eventPointEntryColumns = getTableColumns(eventPointEntry);
 export const eventTournamentColumns = getTableColumns(eventTournament);
 export const eventTournamentParticipantColumns = getTableColumns(
   eventTournamentParticipant,
+);
+export const eventDiscretionaryAwardColumns = getTableColumns(
+  eventDiscretionaryAward,
 );
 export const eventTournamentRoundMatchColumns = getTableColumns(
   eventTournamentRoundMatch,
