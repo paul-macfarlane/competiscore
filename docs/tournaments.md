@@ -19,8 +19,12 @@ Ultimately what I'm trying to support is the ability for partners to compete aga
 
 In a team event, we'd want to make sure only people on the same event team can be on the same tournment team.
 
-## NOT STARTED: 3rd priority: Support for Swiss Style Tournament
+## DONE 3rd priority: Support for Swiss Style Tournament
 
 Support for Swiss Style Tournaments, like there are in chess. See https://en.wikipedia.org/wiki/Swiss-system_tournament. In the immediate future, we want to support something that is non-elemination swiss system. Start with first alphabetically and then by points.
 
 This is a complicated enough implementation where it should be deferred until its the last war week feature remaining.
+
+Feedback:
+
+We should allow tournaments to be deleted regardless of the status of the tournament "draft", "in progress", 'complete". We also should make sure the related matches and scores are deleted.
