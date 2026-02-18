@@ -160,6 +160,8 @@ export const TEAM_ICONS = [
   "sentinel",
   "storm",
   "crown",
+  "red-pill",
+  "blue-pill",
 ] as const;
 
 export const USER_AVATARS = [
@@ -244,6 +246,7 @@ export const EVENT_ICONS = [
   "colosseum",
   "trophy-cup",
   "calendar-star",
+  "matrix",
 ] as const;
 
 export const EVENT_ICON_OPTIONS: IconOption[] = EVENT_ICONS.map((icon) => ({
@@ -301,6 +304,7 @@ export const EventPointCategory = {
   FFA_MATCH: "ffa_match",
   HIGH_SCORE: "high_score",
   TOURNAMENT: "tournament",
+  DISCRETIONARY: "discretionary",
 } as const;
 
 export type EventPointCategory =
@@ -312,10 +316,28 @@ export const EventPointOutcome = {
   DRAW: "draw",
   PLACEMENT: "placement",
   SUBMISSION: "submission",
+  AWARD: "award",
 } as const;
 
 export type EventPointOutcome =
   (typeof EventPointOutcome)[keyof typeof EventPointOutcome];
+
+export const EVENT_POINT_CATEGORY_LABELS: Record<EventPointCategory, string> = {
+  [EventPointCategory.H2H_MATCH]: "H2H Match",
+  [EventPointCategory.FFA_MATCH]: "FFA Match",
+  [EventPointCategory.HIGH_SCORE]: "High Score",
+  [EventPointCategory.TOURNAMENT]: "Tournament",
+  [EventPointCategory.DISCRETIONARY]: "Discretionary",
+};
+
+export const EVENT_POINT_OUTCOME_LABELS: Record<EventPointOutcome, string> = {
+  [EventPointOutcome.WIN]: "Win",
+  [EventPointOutcome.LOSS]: "Loss",
+  [EventPointOutcome.DRAW]: "Draw",
+  [EventPointOutcome.PLACEMENT]: "Placement",
+  [EventPointOutcome.SUBMISSION]: "Submission",
+  [EventPointOutcome.AWARD]: "Award",
+};
 
 export const ScoringType = {
   WIN_LOSS: "win_loss",

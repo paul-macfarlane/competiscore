@@ -29,11 +29,13 @@ import {
   GameCategory,
   MatchParticipantType,
   ParticipantType,
+  ScoringType,
 } from "@/lib/shared/constants";
 import {
   getScoreDescription,
   parseGameConfig,
 } from "@/lib/shared/game-config-parser";
+import { H2HConfig } from "@/lib/shared/game-templates";
 import { ParticipantOption } from "@/lib/shared/participant-options";
 import {
   type RecordEventFFAMatchInput,
@@ -93,6 +95,19 @@ export function RecordEventMatchForm({
       "Score"
     : "Score";
 
+  const hasScoring =
+    selectedGameType &&
+    (() => {
+      const config = parseGameConfig(
+        selectedGameType.config,
+        selectedGameType.category as GameCategory,
+      );
+      if ("scoringType" in config) {
+        return config.scoringType === ScoringType.SCORE_BASED;
+      }
+      return true;
+    })();
+
   return (
     <Card>
       <CardHeader>
@@ -122,10 +137,18 @@ export function RecordEventMatchForm({
           <>
             {selectedGameType.category === GameCategory.HEAD_TO_HEAD ? (
               <H2HMatchForm
+                key={selectedGameType.id}
                 eventId={eventId}
                 gameTypeId={selectedGameType.id}
+                h2hConfig={
+                  parseGameConfig(
+                    selectedGameType.config,
+                    GameCategory.HEAD_TO_HEAD,
+                  ) as H2HConfig
+                }
                 participantOptions={activeOptions}
                 scoreLabel={scoreLabel}
+                hasScoring={!!hasScoring}
               />
             ) : (
               <FFAMatchForm
@@ -133,6 +156,7 @@ export function RecordEventMatchForm({
                 gameTypeId={selectedGameType.id}
                 participantOptions={activeOptions}
                 scoreLabel={scoreLabel}
+                hasScoring={!!hasScoring}
               />
             )}
           </>
@@ -184,13 +208,17 @@ type H2HFormValues = z.input<typeof recordEventH2HMatchSchema>;
 function H2HMatchForm({
   eventId,
   gameTypeId,
+  h2hConfig,
   participantOptions,
   scoreLabel,
+  hasScoring,
 }: {
   eventId: string;
   gameTypeId: string;
+  h2hConfig: H2HConfig;
   participantOptions: ParticipantOption[];
   scoreLabel: string;
+  hasScoring: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -201,8 +229,14 @@ function H2HMatchForm({
       eventId,
       gameTypeId,
       playedAt: formatLocalDateTime(new Date()),
-      side1Participants: [{}],
-      side2Participants: [{}],
+      side1Participants: Array.from(
+        { length: h2hConfig.minPlayersPerSide },
+        () => ({}),
+      ),
+      side2Participants: Array.from(
+        { length: h2hConfig.minPlayersPerSide },
+        () => ({}),
+      ),
       winningSide: "side1",
       side1Score: undefined,
       side2Score: undefined,
@@ -289,43 +323,52 @@ function H2HMatchForm({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <FormLabel className="text-base">Side 1 Participants</FormLabel>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => side1Array.append({})}
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              Add
-            </Button>
+            {side1Array.fields.length < h2hConfig.maxPlayersPerSide && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => side1Array.append({})}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add
+              </Button>
+            )}
           </div>
           {side1Array.fields.map((field, index) => {
             const currentFormValue = form.watch(`side1Participants.${index}`);
             const selectorValue = formValueToSelector(currentFormValue);
             return (
-              <div key={field.id} className="flex gap-2">
-                <div className="flex-1">
-                  <ParticipantSelector
-                    options={getAvailableOptions(selectorValue)}
-                    value={selectorValue}
-                    onChange={(val) => {
-                      const formVal = participantToFormValue(val);
-                      form.setValue(`side1Participants.${index}`, formVal, {
-                        shouldValidate: true,
-                      });
-                    }}
-                    placeholder="Select participant"
-                  />
+              <div key={field.id} className="space-y-1">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <ParticipantSelector
+                      options={getAvailableOptions(selectorValue)}
+                      value={selectorValue}
+                      onChange={(val) => {
+                        const formVal = participantToFormValue(val);
+                        form.setValue(`side1Participants.${index}`, formVal, {
+                          shouldValidate: true,
+                        });
+                      }}
+                      placeholder="Select participant"
+                    />
+                  </div>
+                  {side1Array.fields.length > h2hConfig.minPlayersPerSide && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => side1Array.remove(index)}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                {side1Array.fields.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => side1Array.remove(index)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
+                {!!form.formState.errors.side1Participants?.[index] && (
+                  <p className="text-destructive text-sm font-medium">
+                    Please select a participant
+                  </p>
                 )}
               </div>
             );
@@ -340,43 +383,52 @@ function H2HMatchForm({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <FormLabel className="text-base">Side 2 Participants</FormLabel>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => side2Array.append({})}
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              Add
-            </Button>
+            {side2Array.fields.length < h2hConfig.maxPlayersPerSide && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => side2Array.append({})}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add
+              </Button>
+            )}
           </div>
           {side2Array.fields.map((field, index) => {
             const currentFormValue = form.watch(`side2Participants.${index}`);
             const selectorValue = formValueToSelector(currentFormValue);
             return (
-              <div key={field.id} className="flex gap-2">
-                <div className="flex-1">
-                  <ParticipantSelector
-                    options={getAvailableOptions(selectorValue)}
-                    value={selectorValue}
-                    onChange={(val) => {
-                      const formVal = participantToFormValue(val);
-                      form.setValue(`side2Participants.${index}`, formVal, {
-                        shouldValidate: true,
-                      });
-                    }}
-                    placeholder="Select participant"
-                  />
+              <div key={field.id} className="space-y-1">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <ParticipantSelector
+                      options={getAvailableOptions(selectorValue)}
+                      value={selectorValue}
+                      onChange={(val) => {
+                        const formVal = participantToFormValue(val);
+                        form.setValue(`side2Participants.${index}`, formVal, {
+                          shouldValidate: true,
+                        });
+                      }}
+                      placeholder="Select participant"
+                    />
+                  </div>
+                  {side2Array.fields.length > h2hConfig.minPlayersPerSide && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => side2Array.remove(index)}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                {side2Array.fields.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => side2Array.remove(index)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
+                {!!form.formState.errors.side2Participants?.[index] && (
+                  <p className="text-destructive text-sm font-medium">
+                    Please select a participant
+                  </p>
                 )}
               </div>
             );
@@ -411,56 +463,58 @@ function H2HMatchForm({
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="side1Score"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Side 1 {scoreLabel} (optional)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="any"
-                    placeholder={scoreLabel}
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      field.onChange(
-                        value === "" ? undefined : parseFloat(value),
-                      );
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="side2Score"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Side 2 {scoreLabel} (optional)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="any"
-                    placeholder={scoreLabel}
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      field.onChange(
-                        value === "" ? undefined : parseFloat(value),
-                      );
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {hasScoring && (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="side1Score"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Side 1 {scoreLabel} (optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder={scoreLabel}
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(
+                          value === "" ? undefined : parseFloat(value),
+                        );
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="side2Score"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Side 2 {scoreLabel} (optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder={scoreLabel}
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(
+                          value === "" ? undefined : parseFloat(value),
+                        );
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -569,11 +623,13 @@ function FFAMatchForm({
   gameTypeId,
   participantOptions,
   scoreLabel,
+  hasScoring,
 }: {
   eventId: string;
   gameTypeId: string;
   participantOptions: ParticipantOption[];
   scoreLabel: string;
+  hasScoring: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -717,7 +773,14 @@ function FFAMatchForm({
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                {!!form.formState.errors.participants?.[index] && (
+                  <p className="text-destructive text-sm font-medium">
+                    Please select a participant
+                  </p>
+                )}
+                <div
+                  className={`grid gap-2 ${hasScoring ? "grid-cols-3" : "grid-cols-2"}`}
+                >
                   <FormField
                     control={form.control}
                     name={`participants.${index}.rank`}
@@ -743,30 +806,34 @@ function FFAMatchForm({
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name={`participants.${index}.score`}
-                    render={({ field: scoreField }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">{scoreLabel}</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="any"
-                            placeholder={scoreLabel}
-                            value={scoreField.value ?? ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              scoreField.onChange(
-                                value === "" ? undefined : parseFloat(value),
-                              );
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {hasScoring && (
+                    <FormField
+                      control={form.control}
+                      name={`participants.${index}.score`}
+                      render={({ field: scoreField }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">
+                            {scoreLabel}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="any"
+                              placeholder={scoreLabel}
+                              value={scoreField.value ?? ""}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                scoreField.onChange(
+                                  value === "" ? undefined : parseFloat(value),
+                                );
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <FormField
                     control={form.control}
                     name={`participants.${index}.points`}

@@ -232,6 +232,34 @@
       "when": 1771286400001,
       "tag": "0032_simple_jane_foster",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1771358922346,
+      "tag": "0033_amazing_scrambler",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1771365420118,
+      "tag": "0034_handy_bug",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1771372210904,
+      "tag": "0035_robust_vampiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1771375597610,
+      "tag": "0036_glossy_hairball",
+      "breakpoints": true
     }
   ]
 }

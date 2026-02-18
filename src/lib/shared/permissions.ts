@@ -194,6 +194,7 @@ export const EventAction = {
   CREATE_TOURNAMENTS: "create_tournaments",
   PROMOTE_TO_ORGANIZER: "promote_to_organizer",
   MANAGE_PLACEHOLDERS: "manage_placeholders",
+  MANAGE_DISCRETIONARY: "manage_discretionary",
 } as const;
 
 export type EventAction = (typeof EventAction)[keyof typeof EventAction];
@@ -218,6 +219,7 @@ const EVENT_PERMISSIONS: Record<EventParticipantRole, Set<EventAction>> = {
     EventAction.CREATE_TOURNAMENTS,
     EventAction.PROMOTE_TO_ORGANIZER,
     EventAction.MANAGE_PLACEHOLDERS,
+    EventAction.MANAGE_DISCRETIONARY,
   ]),
 };
 

@@ -3,6 +3,7 @@
 import type { EventTeamWithMembers } from "@/db/events";
 import {
   Event,
+  EventDiscretionaryAward,
   EventGameType,
   EventHighScoreEntry,
   EventHighScoreSession,
@@ -11,6 +12,11 @@ import {
   EventTournamentParticipant,
 } from "@/db/schema";
 import { auth } from "@/lib/server/auth";
+import {
+  createDiscretionaryAward,
+  deleteDiscretionaryAward,
+  updateDiscretionaryAward,
+} from "@/services/event-discretionary";
 import {
   archiveEventGameType,
   createEventGameType,
@@ -53,6 +59,7 @@ import {
 } from "@/services/event-teams";
 import {
   addEventTournamentParticipant,
+  addEventTournamentPartnership,
   createEventTournament,
   deleteEventTournament,
   forfeitEventTournamentMatch,
@@ -625,6 +632,19 @@ export async function addEventTournamentParticipantAction(
   return addEventTournamentParticipant(userId, input);
 }
 
+export async function addEventTournamentPartnershipAction(
+  input: unknown,
+): Promise<ServiceResult<EventTournamentParticipant>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await addEventTournamentPartnership(userId, input);
+  if (result.data) {
+    revalidatePath(`/events`);
+  }
+  return result;
+}
+
 export async function removeEventTournamentParticipantAction(
   input: unknown,
 ): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
@@ -703,6 +723,48 @@ export async function undoEventTournamentMatchResultAction(
   if (!userId) return { error: "Unauthorized" };
 
   const result = await undoEventTournamentMatchResult(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+// Discretionary Awards
+
+export async function createDiscretionaryAwardAction(
+  input: unknown,
+): Promise<ServiceResult<EventDiscretionaryAward>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await createDiscretionaryAward(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+export async function updateDiscretionaryAwardAction(
+  idInput: unknown,
+  dataInput: unknown,
+): Promise<ServiceResult<EventDiscretionaryAward>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await updateDiscretionaryAward(userId, idInput, dataInput);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+export async function deleteDiscretionaryAwardAction(
+  input: unknown,
+): Promise<ServiceResult<{ deleted: boolean; eventId: string }>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await deleteDiscretionaryAward(userId, input);
   if (result.data) {
     revalidatePath(`/events/${result.data.eventId}`);
   }
