@@ -829,6 +829,24 @@ export const undoEventTournamentMatchResultSchema = z.object({
   tournamentMatchId: uuidSchema,
 });
 
+// Swiss round pairing edit
+export const updateSwissRoundPairingsSchema = z.object({
+  eventTournamentId: uuidSchema,
+  round: z.number().int().min(1),
+  pairings: z.array(
+    z.object({
+      matchId: uuidSchema,
+      participant1Id: uuidSchema,
+      participant2Id: uuidSchema.nullable(),
+      isBye: z.boolean(),
+    }),
+  ),
+});
+
+export type UpdateSwissRoundPairingsInput = z.infer<
+  typeof updateSwissRoundPairingsSchema
+>;
+
 // Event invitation schemas
 export const generateEventInviteLinkSchema = z.object({
   eventId: uuidSchema,

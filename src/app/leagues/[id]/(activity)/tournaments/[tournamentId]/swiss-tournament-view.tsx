@@ -45,6 +45,7 @@ type SwissTournamentViewProps = {
   participants: TournamentParticipantWithDetails[];
   totalRounds: number;
   canManage: boolean;
+  userParticipantIds?: string[];
   config: H2HConfig;
   leagueId: string;
   gameTypeId: string;
@@ -81,6 +82,7 @@ export function SwissTournamentView({
   participants,
   totalRounds,
   canManage,
+  userParticipantIds = [],
   config,
   leagueId,
   gameTypeId,
@@ -242,10 +244,17 @@ export function SwissTournamentView({
                   {roundMatches.map((match) => {
                     const isResolved =
                       match.winnerId !== null || match.isDraw || match.isBye;
-                    const isPending =
+                    const isMatchPending =
                       !isResolved &&
                       match.participant1Id &&
                       match.participant2Id;
+                    const isUserInMatch =
+                      userParticipantIds.includes(match.participant1Id ?? "") ||
+                      userParticipantIds.includes(match.participant2Id ?? "");
+                    const canRecordThis =
+                      isMatchPending &&
+                      !isCompleted &&
+                      (canManage || isUserInMatch);
 
                     return (
                       <div
@@ -276,7 +285,7 @@ export function SwissTournamentView({
                             </div>
                           )}
                         </div>
-                        <div className="shrink-0 ml-2">
+                        <div className="shrink-0 ml-2 flex items-center gap-1">
                           {match.isDraw && (
                             <Badge variant="secondary">Draw</Badge>
                           )}
@@ -294,7 +303,7 @@ export function SwissTournamentView({
                                 wins
                               </Badge>
                             )}
-                          {isPending && canManage && !isCompleted && (
+                          {canRecordThis && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -303,7 +312,7 @@ export function SwissTournamentView({
                               Record Result
                             </Button>
                           )}
-                          {isPending && !canManage && (
+                          {isMatchPending && !canRecordThis && (
                             <Badge variant="outline">Pending</Badge>
                           )}
                         </div>

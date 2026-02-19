@@ -79,7 +79,7 @@ export function EditHighScoreSessionForm({
         }
       } else if (result.data) {
         toast.success("Session updated successfully!");
-        router.push(`/events/${eventId}/high-scores`);
+        router.push(`/events/${eventId}/best-scores`);
       }
     });
   };

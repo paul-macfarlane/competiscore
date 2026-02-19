@@ -119,6 +119,15 @@ export default async function EventTournamentDetailPage({ params }: Props) {
   const { participants, bracket } = tournament;
   const isTeamTournament = tournament.participantType === ParticipantType.TEAM;
   const isSwiss = tournament.tournamentType === TournamentType.SWISS;
+
+  const userParticipantIds = participants
+    .filter((p) => {
+      if (p.user?.id === session.user.id) return true;
+      if (p.members?.some((m) => m.user?.id === session.user.id)) return true;
+      return false;
+    })
+    .map((p) => p.id);
+  const isInProgress = tournament.status === TournamentStatus.IN_PROGRESS;
   const h2hConfig =
     tournament.gameType.category === GameCategory.HEAD_TO_HEAD
       ? parseH2HConfig(tournament.gameType.config)
@@ -487,8 +496,10 @@ export default async function EventTournamentDetailPage({ params }: Props) {
             bracket={bracket}
             participants={participants}
             totalRounds={tournament.totalRounds ?? 0}
-            canManage={canManage}
+            canManage={canManage && isInProgress}
+            userParticipantIds={isInProgress ? userParticipantIds : []}
             eventId={eventId}
+            eventTournamentId={tournamentId}
             isTeamTournament={isTeamTournament}
             isCompleted={tournament.status === TournamentStatus.COMPLETED}
             config={h2hConfig!}
@@ -502,11 +513,8 @@ export default async function EventTournamentDetailPage({ params }: Props) {
               <EventTournamentBracketView
                 bracket={bracket}
                 totalRounds={tournament.totalRounds ?? 0}
-                canManage={canManage}
-                canRecordMatches={
-                  canManage &&
-                  tournament.status === TournamentStatus.IN_PROGRESS
-                }
+                canManage={canManage && isInProgress}
+                userParticipantIds={isInProgress ? userParticipantIds : []}
                 eventId={eventId}
                 tournamentId={tournamentId}
                 isTeamTournament={isTeamTournament}

@@ -180,7 +180,7 @@ async function HighScoresContent({
         <h1 className="text-2xl font-bold">Best Score Sessions</h1>
         {isOrganizer && event.status === EventStatus.ACTIVE && (
           <Button asChild>
-            <a href={`/events/${eventId}/high-scores/open`}>
+            <a href={`/events/${eventId}/best-scores/open`}>
               <Plus className="mr-2 h-4 w-4" />
               Open Session
             </a>
@@ -315,14 +315,14 @@ function OpenSessionCard({
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" asChild>
-              <a href={`/events/${eventId}/high-scores/${session.id}/submit`}>
+              <a href={`/events/${eventId}/best-scores/${session.id}/submit`}>
                 Submit Score
               </a>
             </Button>
             {isOrganizer && (
               <>
                 <Button variant="outline" size="sm" asChild>
-                  <a href={`/events/${eventId}/high-scores/${session.id}/edit`}>
+                  <a href={`/events/${eventId}/best-scores/${session.id}/edit`}>
                     Edit
                   </a>
                 </Button>
@@ -424,7 +424,7 @@ function OpenSessionCard({
       <CardFooter>
         <Button variant="outline" size="sm" className="w-full" asChild>
           <Link
-            href={`/events/${eventId}/high-scores/leaderboard/${session.eventGameTypeId}`}
+            href={`/events/${eventId}/best-scores/leaderboard/${session.eventGameTypeId}`}
           >
             View Leaderboard
           </Link>
@@ -594,7 +594,7 @@ function ClosedSessionCard({
       <CardFooter>
         <Button variant="outline" size="sm" className="w-full" asChild>
           <Link
-            href={`/events/${eventId}/high-scores/leaderboard/${session.eventGameTypeId}`}
+            href={`/events/${eventId}/best-scores/leaderboard/${session.eventGameTypeId}`}
           >
             View Leaderboard
           </Link>

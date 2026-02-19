@@ -72,10 +72,9 @@ export default async function TournamentDetailPage({ params }: PageProps) {
   const isInProgress = tournament.status === TournamentStatus.IN_PROGRESS;
   const isCompleted = tournament.status === TournamentStatus.COMPLETED;
   const h2hConfig = parseH2HConfig(tournament.gameType.config);
-  const isParticipant = tournament.participants.some(
-    (p) => p.userId === session.user.id,
-  );
-  const canRecordMatches = isInProgress && (canManage || isParticipant);
+  const userParticipantIds = tournament.participants
+    .filter((p) => p.userId === session.user.id)
+    .map((p) => p.id);
 
   // For draft mode, get league members/teams/placeholders for participant selection
   let leagueMembers: {
@@ -259,7 +258,8 @@ export default async function TournamentDetailPage({ params }: PageProps) {
             bracket={tournament.bracket}
             participants={tournament.participants}
             totalRounds={tournament.totalRounds}
-            canManage={canRecordMatches}
+            canManage={canManage && isInProgress}
+            userParticipantIds={userParticipantIds}
             config={h2hConfig}
             leagueId={leagueId}
             gameTypeId={tournament.gameType.id}
@@ -278,7 +278,8 @@ export default async function TournamentDetailPage({ params }: PageProps) {
               <TournamentBracketView
                 bracket={tournament.bracket}
                 totalRounds={tournament.totalRounds}
-                canManage={canRecordMatches}
+                canManage={canManage && isInProgress}
+                userParticipantIds={userParticipantIds}
                 config={h2hConfig}
                 leagueId={leagueId}
                 gameTypeId={tournament.gameType.id}

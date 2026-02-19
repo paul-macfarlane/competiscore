@@ -111,7 +111,7 @@ function getEntryHref(
     return `/events/${eventId}/matches/${entry.eventMatchId}`;
   }
   if (entry.eventHighScoreSessionId && entry.eventHighScoreGameTypeId) {
-    return `/events/${eventId}/high-scores/leaderboard/${entry.eventHighScoreGameTypeId}`;
+    return `/events/${eventId}/best-scores/leaderboard/${entry.eventHighScoreGameTypeId}`;
   }
   if (entry.eventTournamentId) {
     return `/events/${eventId}/tournaments/${entry.eventTournamentId}`;

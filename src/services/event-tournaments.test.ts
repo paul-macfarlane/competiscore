@@ -9,6 +9,7 @@ import {
   countEventTournamentsByEventId as dbCountTournaments,
   createEventTournamentRoundMatches as dbCreateRoundMatches,
   createEventTournament as dbCreateTournament,
+  deleteEventTournamentRoundMatchesByRound as dbDeleteRoundMatchesByRound,
   deleteEventTournament as dbDeleteTournament,
   getEventTournamentBracket as dbGetBracket,
   getEventTournamentParticipantById as dbGetParticipantById,
@@ -51,6 +52,7 @@ import {
   setEventParticipantSeeds,
   undoEventTournamentMatchResult,
   updateEventTournament,
+  updateSwissRoundPairings,
 } from "./event-tournaments";
 import { TEST_IDS } from "./test-helpers";
 
@@ -102,6 +104,7 @@ vi.mock("@/db/event-tournaments", () => ({
   checkIndividualInEventTournament: vi.fn(),
   checkIndividualInEventTournamentPartnership: vi.fn(),
   createEventTournamentRoundMatches: vi.fn(),
+  deleteEventTournamentRoundMatchesByRound: vi.fn(),
   getEventTournamentBracket: vi.fn(),
   getEventTournamentRoundMatchById: vi.fn(),
   updateEventTournamentRoundMatch: vi.fn(),
@@ -2125,6 +2128,267 @@ describe("generateNextEventSwissRound", () => {
     vi.mocked(dbCreateRoundMatches).mockResolvedValue([]);
     const result = await generateNextEventSwissRound(TEST_IDS.USER_ID, {
       eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+    });
+    expect(result.data?.eventTournamentId).toBe(TEST_IDS.EVENT_TOURNAMENT_ID);
+    expect(result.data?.eventId).toBe(TEST_IDS.EVENT_ID);
+  });
+});
+
+describe("updateSwissRoundPairings", () => {
+  const P1_ID = "b53e4567-e89b-12d3-a456-426614174000";
+  const P2_ID = "b53e4567-e89b-12d3-a456-426614174001";
+  const P3_ID = "b53e4567-e89b-12d3-a456-426614174002";
+  const P4_ID = "b53e4567-e89b-12d3-a456-426614174003";
+  const MATCH1_ID = "c53e4567-e89b-12d3-a456-426614174000";
+  const MATCH2_ID = "c53e4567-e89b-12d3-a456-426614174001";
+
+  function mockSwissBracket(
+    overrides: Partial<{
+      winnerId: string | null;
+      isDraw: boolean;
+      eventMatchId: string | null;
+    }>[] = [],
+  ) {
+    const defaults = { winnerId: null, isDraw: false, eventMatchId: null };
+    vi.mocked(dbGetBracket).mockResolvedValue([
+      {
+        id: MATCH1_ID,
+        eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+        round: 1,
+        position: 1,
+        participant1Id: P1_ID,
+        participant2Id: P2_ID,
+        ...defaults,
+        ...(overrides[0] ?? {}),
+        isBye: false,
+        isForfeit: false,
+        participant1Score: null,
+        participant2Score: null,
+        nextMatchId: null,
+        nextMatchSlot: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: MATCH2_ID,
+        eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+        round: 1,
+        position: 2,
+        participant1Id: P3_ID,
+        participant2Id: P4_ID,
+        ...defaults,
+        ...(overrides[1] ?? {}),
+        isBye: false,
+        isForfeit: false,
+        participant1Score: null,
+        participant2Score: null,
+        nextMatchId: null,
+        nextMatchSlot: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ] as ReturnType<typeof dbGetBracket> extends Promise<infer T> ? T : never);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns validation error for invalid input", async () => {
+    const result = await updateSwissRoundPairings(TEST_IDS.USER_ID, {});
+    expect(result.error).toBe("Validation failed");
+    expect(result.fieldErrors).toBeDefined();
+  });
+
+  it("returns error for non-swiss tournament", async () => {
+    mockTournament({
+      status: "in_progress",
+      tournamentType: "single_elimination",
+    });
+    mockOrganizerMember();
+    const result = await updateSwissRoundPairings(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+      round: 1,
+      pairings: [],
+    });
+    expect(result.error).toBe("This action is only for Swiss tournaments");
+  });
+
+  it("returns error for non-in-progress tournament", async () => {
+    mockTournament({ status: "draft", tournamentType: "swiss" });
+    mockOrganizerMember();
+    const result = await updateSwissRoundPairings(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+      round: 1,
+      pairings: [],
+    });
+    expect(result.error).toBe("Tournament is not in progress");
+  });
+
+  it("returns error for non-organizer", async () => {
+    mockTournament({ status: "in_progress", tournamentType: "swiss" });
+    mockParticipantMember();
+    mockSwissBracket();
+    const result = await updateSwissRoundPairings(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+      round: 1,
+      pairings: [
+        {
+          matchId: MATCH1_ID,
+          participant1Id: P2_ID,
+          participant2Id: P1_ID,
+          isBye: false,
+        },
+        {
+          matchId: MATCH2_ID,
+          participant1Id: P3_ID,
+          participant2Id: P4_ID,
+          isBye: false,
+        },
+      ],
+    });
+    expect(result.error).toBe(
+      "You do not have permission to manage tournaments",
+    );
+  });
+
+  it("returns error for non-current round", async () => {
+    mockTournament({ status: "in_progress", tournamentType: "swiss" });
+    mockOrganizerMember();
+    // Bracket has round 2 as max, but request is for round 1
+    vi.mocked(dbGetBracket).mockResolvedValue([
+      {
+        id: MATCH1_ID,
+        eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+        round: 2,
+        position: 1,
+        participant1Id: P1_ID,
+        participant2Id: P2_ID,
+        winnerId: null,
+        isDraw: false,
+        eventMatchId: null,
+        isBye: false,
+        isForfeit: false,
+        participant1Score: null,
+        participant2Score: null,
+        nextMatchId: null,
+        nextMatchSlot: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ] as ReturnType<typeof dbGetBracket> extends Promise<infer T> ? T : never);
+    mockParticipants(4);
+    const result = await updateSwissRoundPairings(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+      round: 1,
+      pairings: [],
+    });
+    expect(result.error).toBe("Can only edit pairings for the current round");
+  });
+
+  it("returns error when matches have been recorded", async () => {
+    mockTournament({ status: "in_progress", tournamentType: "swiss" });
+    mockOrganizerMember();
+    mockSwissBracket([{ winnerId: P1_ID }]);
+    mockParticipants(4);
+    const result = await updateSwissRoundPairings(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+      round: 1,
+      pairings: [
+        {
+          matchId: MATCH1_ID,
+          participant1Id: P2_ID,
+          participant2Id: P1_ID,
+          isBye: false,
+        },
+        {
+          matchId: MATCH2_ID,
+          participant1Id: P3_ID,
+          participant2Id: P4_ID,
+          isBye: false,
+        },
+      ],
+    });
+    expect(result.error).toBe(
+      "Cannot edit pairings after matches have been recorded",
+    );
+  });
+
+  it("returns error for duplicate participants", async () => {
+    mockTournament({ status: "in_progress", tournamentType: "swiss" });
+    mockOrganizerMember();
+    mockSwissBracket();
+    mockParticipants(4);
+    const result = await updateSwissRoundPairings(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+      round: 1,
+      pairings: [
+        {
+          matchId: MATCH1_ID,
+          participant1Id: P1_ID,
+          participant2Id: P1_ID,
+          isBye: false,
+        },
+        {
+          matchId: MATCH2_ID,
+          participant1Id: P3_ID,
+          participant2Id: P4_ID,
+          isBye: false,
+        },
+      ],
+    });
+    expect(result.error).toBe(
+      "Each participant must appear exactly once in pairings",
+    );
+  });
+
+  it("returns error when not all participants are included", async () => {
+    mockTournament({ status: "in_progress", tournamentType: "swiss" });
+    mockOrganizerMember();
+    mockSwissBracket();
+    mockParticipants(4);
+    const result = await updateSwissRoundPairings(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+      round: 1,
+      pairings: [
+        {
+          matchId: MATCH1_ID,
+          participant1Id: P1_ID,
+          participant2Id: P2_ID,
+          isBye: false,
+        },
+      ],
+    });
+    expect(result.error).toBe(
+      "Pairings must include all tournament participants",
+    );
+  });
+
+  it("successfully updates pairings with swapped participants", async () => {
+    mockTournament({ status: "in_progress", tournamentType: "swiss" });
+    mockOrganizerMember();
+    mockSwissBracket();
+    mockParticipants(4);
+    vi.mocked(dbDeleteRoundMatchesByRound).mockResolvedValue(undefined);
+    vi.mocked(dbCreateRoundMatches).mockResolvedValue([]);
+
+    const result = await updateSwissRoundPairings(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+      round: 1,
+      pairings: [
+        {
+          matchId: MATCH1_ID,
+          participant1Id: P1_ID,
+          participant2Id: P3_ID,
+          isBye: false,
+        },
+        {
+          matchId: MATCH2_ID,
+          participant1Id: P2_ID,
+          participant2Id: P4_ID,
+          isBye: false,
+        },
+      ],
     });
     expect(result.data?.eventTournamentId).toBe(TEST_IDS.EVENT_TOURNAMENT_ID);
     expect(result.data?.eventId).toBe(TEST_IDS.EVENT_ID);

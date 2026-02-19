@@ -145,7 +145,7 @@ async function LeaderboardContent({
     const params = new URLSearchParams();
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
-    return `/events/${eventId}/high-scores/leaderboard/${gameTypeId}${qs ? `?${qs}` : ""}`;
+    return `/events/${eventId}/best-scores/leaderboard/${gameTypeId}${qs ? `?${qs}` : ""}`;
   };
 
   return (
@@ -155,7 +155,7 @@ async function LeaderboardContent({
           { label: event.name, href: `/events/${eventId}` },
           {
             label: "Best Scores",
-            href: `/events/${eventId}/high-scores`,
+            href: `/events/${eventId}/best-scores`,
           },
           { label: gameType.name },
         ]}

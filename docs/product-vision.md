@@ -229,9 +229,11 @@ For MVP, matches are assumed accurate when recorded. Trust is placed in the comm
 
 _Future: Dispute/confirmation system._
 
-### 4.4 Match Immutability
+### 4.4 Match Immutability (Leagues)
 
-Recorded matches cannot be deleted. All match recordings are auditable (who recorded what, when). This ensures historical integrity and prevents manipulation of standings.
+League matches cannot be edited or deleted. All match recordings are auditable (who recorded what, when). This ensures historical integrity and prevents manipulation of ELO standings. League tournament match results are similarly immutable — they cannot be reset or edited once recorded, since tournament matches also affect ELO ratings.
+
+Note: Events have different rules — see Section 8.8 and 8.16 for event match deletion and tournament undo capabilities.
 
 ### 4.5 High Score Submissions
 
@@ -362,7 +364,11 @@ _Future: ELO-based seeding_
 - Tournaments can span any period of time (no time limits per round)
 - Tournaments can be deleted regardless of status (draft, in progress, or completed). Deleting a tournament also removes all related matches and scores. For completed tournaments that awarded placement points, those points are reverted.
 
-### 7.6 ELO Impact
+### 7.6 Match Immutability
+
+League tournament match results cannot be edited, reset, or undone once recorded, since they affect ELO ratings. This is consistent with the league match immutability policy (Section 4.4). Event tournaments have different rules — see Section 8.16.
+
+### 7.7 ELO Impact
 
 Tournament matches affect ELO ratings the same as regular matches. There is no separate tournament ELO.
 
@@ -392,25 +398,29 @@ Organizers can reopen completed events (transition back to Active) if additional
 
 Events have two roles (referred to as "participants" in the UI, not "members"):
 
-| Permission                      | Participant | Organizer |
-| ------------------------------- | ----------- | --------- |
-| View event                      | ✓           | ✓         |
-| Submit own high scores          | ✓           | ✓         |
-| Record own matches              | ✓           | ✓         |
-| Record matches for others       |             | ✓         |
-| Submit high scores for others   |             | ✓         |
-| Delete own matches & scores     | ✓           | ✓         |
-| Delete others' matches & scores |             | ✓         |
-| Manage game types               |             | ✓         |
-| Manage teams                    |             | ✓         |
-| Manage participants             |             | ✓         |
-| Open/close high score sessions  |             | ✓         |
-| Create tournaments              |             | ✓         |
-| Invite participants             |             | ✓         |
-| Manage placeholders             |             | ✓         |
-| Promote to organizer            |             | ✓         |
-| Start/complete/reopen event     |             | ✓         |
-| Edit/archive/delete event       |             | ✓         |
+| Permission                        | Participant | Organizer |
+| --------------------------------- | ----------- | --------- |
+| View event                        | ✓           | ✓         |
+| Submit own high scores            | ✓           | ✓         |
+| Record own matches                | ✓           | ✓         |
+| Record own tournament matches     | ✓           | ✓         |
+| Undo own tournament results       | ✓           | ✓         |
+| Record matches for others         |             | ✓         |
+| Record tournament matches for all |             | ✓         |
+| Undo any tournament result        |             | ✓         |
+| Submit high scores for others     |             | ✓         |
+| Delete own matches & scores       | ✓           | ✓         |
+| Delete others' matches & scores   |             | ✓         |
+| Manage game types                 |             | ✓         |
+| Manage teams                      |             | ✓         |
+| Manage participants               |             | ✓         |
+| Open/close high score sessions    |             | ✓         |
+| Create tournaments                |             | ✓         |
+| Invite participants               |             | ✓         |
+| Manage placeholders               |             | ✓         |
+| Promote to organizer              |             | ✓         |
+| Start/complete/reopen event       |             | ✓         |
+| Edit/archive/delete event         |             | ✓         |
 
 The event creator is automatically assigned the Organizer role.
 
@@ -553,7 +563,7 @@ Events support single elimination tournaments with individual participants (repr
 
 **Recording:** Both organizers and participants can record tournament match results. Participants can only record results for matches they are involved in. In a best-of series, each game is recorded individually and the series advances automatically when one side clinches.
 
-**Undo:** Tournament match results can be undone (reverted). For best-of series, undoing removes the most recent game. If the series-deciding game is undone, the winner is un-advanced and the loser is un-eliminated. Undo is blocked if a subsequent match further down the bracket has already been played.
+**Undo:** Tournament match results can be undone (reverted). Participants can only undo results for matches they are involved in; organizers can undo any match. For best-of series, undoing removes the most recent game. If the series-deciding game is undone, the winner is un-advanced and the loser is un-eliminated. Undo is blocked if a subsequent match further down the bracket has already been played.
 
 _Future: Tournament match editing (modify results in-place without undo)._
 
@@ -725,7 +735,9 @@ Web application (MVP). Mobile apps may follow.
 ### 12.2 Data Integrity
 
 - All match recordings are auditable (who, what, when)
-- Matches cannot be deleted
+- League matches and tournament results cannot be edited or deleted (ELO integrity)
+- Event matches can be deleted (self-only for participants, any for organizers)
+- Event tournament results can be undone (self-only for participants, any for organizers)
 - Rate limiting on match recording to prevent spam
 
 ### 12.3 Image Storage

@@ -40,11 +40,11 @@ export default async function EditHighScoreSessionPage({ params }: Props) {
   const hsSession = sessionResult.data;
 
   if (event.role !== EventParticipantRole.ORGANIZER) {
-    redirect(`/events/${eventId}/high-scores`);
+    redirect(`/events/${eventId}/best-scores`);
   }
 
   if (hsSession.status !== HighScoreSessionStatus.OPEN) {
-    redirect(`/events/${eventId}/high-scores`);
+    redirect(`/events/${eventId}/best-scores`);
   }
 
   const placementPointConfig: PlacementPointConfig =
@@ -57,7 +57,7 @@ export default async function EditHighScoreSessionPage({ params }: Props) {
       <LeagueBreadcrumb
         items={[
           { label: event.name, href: `/events/${eventId}` },
-          { label: "Best Scores", href: `/events/${eventId}/high-scores` },
+          { label: "Best Scores", href: `/events/${eventId}/best-scores` },
           { label: "Edit Session" },
         ]}
       />

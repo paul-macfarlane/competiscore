@@ -23,6 +23,7 @@ type TournamentBracketViewProps = {
   bracket: TournamentRoundMatchWithDetails[];
   totalRounds: number;
   canManage: boolean;
+  userParticipantIds?: string[];
   config: H2HConfig;
   leagueId: string;
   gameTypeId: string;
@@ -43,6 +44,7 @@ export function TournamentBracketView({
   bracket,
   totalRounds,
   canManage,
+  userParticipantIds,
   config,
   leagueId,
   gameTypeId,
@@ -101,6 +103,7 @@ export function TournamentBracketView({
         onMatchClick={handleMatchClick}
         onViewMatch={handleViewMatch}
         canManage={canManage}
+        userParticipantIds={userParticipantIds}
       />
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">

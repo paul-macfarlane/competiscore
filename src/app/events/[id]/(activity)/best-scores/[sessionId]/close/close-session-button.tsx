@@ -27,7 +27,7 @@ export function CloseHighScoreSessionButton({
         toast.error(result.error);
       } else if (result.data) {
         toast.success("Session closed and points awarded!");
-        router.push(`/events/${eventId}/high-scores`);
+        router.push(`/events/${eventId}/best-scores`);
       }
     });
   };

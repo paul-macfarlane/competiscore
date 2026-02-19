@@ -619,6 +619,21 @@ export async function getEventTournamentRoundMatchesByRound(
     .orderBy(eventTournamentRoundMatch.position);
 }
 
+export async function deleteEventTournamentRoundMatchesByRound(
+  eventTournamentId: string,
+  round: number,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .delete(eventTournamentRoundMatch)
+    .where(
+      and(
+        eq(eventTournamentRoundMatch.eventTournamentId, eventTournamentId),
+        eq(eventTournamentRoundMatch.round, round),
+      ),
+    );
+}
+
 export type EventTournamentMatchInfo = {
   matchId: string;
   tournamentId: string;

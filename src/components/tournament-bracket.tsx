@@ -14,6 +14,7 @@ type TournamentBracketProps = {
   onMatchClick?: (match: TournamentRoundMatchWithDetails) => void;
   onViewMatch?: (matchId: string) => void;
   canManage?: boolean;
+  userParticipantIds?: string[];
 };
 
 function getRoundLabel(round: number, totalRounds: number): string {
@@ -29,6 +30,7 @@ export function TournamentBracket({
   onMatchClick,
   onViewMatch,
   canManage,
+  userParticipantIds = [],
 }: TournamentBracketProps) {
   const rounds: TournamentRoundMatchWithDetails[][] = [];
   for (let r = 1; r <= totalRounds; r++) {
@@ -66,7 +68,12 @@ export function TournamentBracket({
                     !!match.participant1Id &&
                     !!match.participant2Id;
 
-                  const canRecord = canManage && isReadyToPlay;
+                  const isUserInMatch =
+                    userParticipantIds.includes(match.participant1Id ?? "") ||
+                    userParticipantIds.includes(match.participant2Id ?? "");
+
+                  const canRecord =
+                    isReadyToPlay && (canManage || isUserInMatch);
 
                   const isCompleted = !!match.winnerId && !match.isBye;
 

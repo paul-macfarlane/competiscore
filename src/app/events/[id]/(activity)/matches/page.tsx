@@ -5,12 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/server/auth";
-import {
-  EventParticipantRole,
-  EventStatus,
-  GameCategory,
-} from "@/lib/shared/constants";
+import { EventStatus, GameCategory } from "@/lib/shared/constants";
 import { getScoreDescription } from "@/lib/shared/game-config-parser";
+import { EventAction, canPerformEventAction } from "@/lib/shared/permissions";
 import { getEventGameTypes } from "@/services/event-game-types";
 import { getEventMatches } from "@/services/event-leaderboards";
 import { getEvent } from "@/services/events";
@@ -110,7 +107,11 @@ async function MatchesContent({
   }
 
   const event = eventResult.data;
-  const isOrganizer = event.role === EventParticipantRole.ORGANIZER;
+  const canRecord = canPerformEventAction(
+    event.role,
+    EventAction.RECORD_MATCHES,
+  );
+  const isOrganizer = event.role === "organizer";
   const offset = (page - 1) * ITEMS_PER_PAGE;
 
   const [matchesResult, gameTypesResult] = await Promise.all([
@@ -148,7 +149,7 @@ async function MatchesContent({
 
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Matches</h2>
-        {isOrganizer && event.status === EventStatus.ACTIVE && (
+        {canRecord && event.status === EventStatus.ACTIVE && (
           <Button size="sm" asChild>
             <Link href={`/events/${eventId}/matches/record`}>Record Match</Link>
           </Button>

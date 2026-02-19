@@ -70,6 +70,7 @@ import {
   setEventParticipantSeeds,
   undoEventTournamentMatchResult,
   updateEventTournament,
+  updateSwissRoundPairings,
 } from "@/services/event-tournaments";
 import {
   archiveEvent,
@@ -724,6 +725,19 @@ export async function undoEventTournamentMatchResultAction(
   if (!userId) return { error: "Unauthorized" };
 
   const result = await undoEventTournamentMatchResult(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+export async function updateSwissRoundPairingsAction(
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await updateSwissRoundPairings(userId, input);
   if (result.data) {
     revalidatePath(`/events/${result.data.eventId}`);
   }

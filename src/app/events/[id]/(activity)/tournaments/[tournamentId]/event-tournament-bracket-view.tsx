@@ -69,7 +69,7 @@ type Props = {
   bracket: BracketMatch[];
   totalRounds: number;
   canManage: boolean;
-  canRecordMatches?: boolean;
+  userParticipantIds?: string[];
   eventId: string;
   tournamentId: string;
   isTeamTournament?: boolean;
@@ -126,7 +126,7 @@ export function EventTournamentBracketView({
   bracket,
   totalRounds,
   canManage,
-  canRecordMatches,
+  userParticipantIds = [],
   isTeamTournament,
   config,
   bestOf: defaultBestOf,
@@ -147,10 +147,15 @@ export function EventTournamentBracketView({
     matches.sort((a, b) => a.position - b.position);
   }
 
+  const isUserInMatch = (match: BracketMatch) =>
+    userParticipantIds.includes(match.participant1?.id ?? "") ||
+    userParticipantIds.includes(match.participant2?.id ?? "");
+
   const handleMatchClick = (match: BracketMatch) => {
-    if (!canRecordMatches || !config) return;
+    if (!config) return;
     if (match.winnerId != null) return;
     if (!match.participant1 || !match.participant2) return;
+    if (!canManage && !isUserInMatch(match)) return;
     setSelectedMatch(match);
     setDialogOpen(true);
   };
@@ -210,11 +215,11 @@ export function EventTournamentBracketView({
     : undefined;
 
   const isClickable = (match: BracketMatch) =>
-    canRecordMatches &&
     config &&
     match.winnerId == null &&
     match.participant1 != null &&
-    match.participant2 != null;
+    match.participant2 != null &&
+    (canManage || isUserInMatch(match));
 
   return (
     <>
@@ -231,7 +236,7 @@ export function EventTournamentBracketView({
                   <MatchCard
                     key={match.id}
                     match={match}
-                    canManage={canManage}
+                    canUndoThis={canManage || isUserInMatch(match)}
                     isTeamTournament={isTeamTournament}
                     clickable={isClickable(match)}
                     onClick={() => handleMatchClick(match)}
@@ -292,7 +297,7 @@ export function EventTournamentBracketView({
 
 function MatchCard({
   match,
-  canManage,
+  canUndoThis,
   isTeamTournament,
   clickable,
   onClick,
@@ -301,7 +306,7 @@ function MatchCard({
   roundBestOf,
 }: {
   match: BracketMatch;
-  canManage: boolean;
+  canUndoThis?: boolean;
   isTeamTournament?: boolean;
   clickable?: boolean;
   onClick?: () => void;
@@ -367,7 +372,7 @@ function MatchCard({
           <Badge variant="outline" className="text-xs">
             Complete
           </Badge>
-          {canManage && (
+          {canUndoThis && (
             <Button
               variant="ghost"
               size="icon"
@@ -390,7 +395,7 @@ function MatchCard({
             Series: {match.participant1Wins}-{match.participant2Wins} (Bo
             {roundBestOf})
           </span>
-          {canManage && (
+          {canUndoThis && (
             <Button
               variant="ghost"
               size="icon"

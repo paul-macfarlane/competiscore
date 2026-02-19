@@ -36,6 +36,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { recordEventTournamentMatchResultAction } from "../../../actions";
+import { EditSwissPairingsDialog } from "./edit-swiss-pairings-dialog";
 
 type PartnershipMember = {
   id: string;
@@ -103,7 +104,9 @@ type Props = {
   }[];
   totalRounds: number;
   canManage: boolean;
+  userParticipantIds?: string[];
   eventId: string;
+  eventTournamentId: string;
   isTeamTournament: boolean;
   isCompleted: boolean;
   config: H2HConfig;
@@ -184,7 +187,9 @@ export function EventSwissTournamentView({
   participants,
   totalRounds,
   canManage,
+  userParticipantIds = [],
   eventId,
+  eventTournamentId,
   isTeamTournament,
   isCompleted,
   config,
@@ -344,10 +349,28 @@ export function EventSwissTournamentView({
             .filter((m) => m.round === round)
             .sort((a, b) => a.position - b.position);
 
+          const isCurrentRound = round === currentRound;
+          const noMatchesRecorded = roundMatches.every(
+            (m) => m.isBye || (m.winnerId === null && !m.isDraw),
+          );
+          const canEditThisRound =
+            canManage && !isCompleted && isCurrentRound && noMatchesRecorded;
+
           return (
             <Card key={round}>
               <CardHeader>
-                <CardTitle className="text-base">Round {round}</CardTitle>
+                <CardTitle className="flex items-center justify-between text-base">
+                  <span>Round {round}</span>
+                  {canEditThisRound && (
+                    <EditSwissPairingsDialog
+                      eventTournamentId={eventTournamentId}
+                      round={round}
+                      matches={roundMatches}
+                      isTeamTournament={isTeamTournament}
+                      participantMap={participantMap}
+                    />
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -358,6 +381,11 @@ export function EventSwissTournamentView({
                       !isResolved &&
                       match.participant1Id &&
                       match.participant2Id;
+                    const isUserInMatch =
+                      userParticipantIds.includes(match.participant1Id ?? "") ||
+                      userParticipantIds.includes(match.participant2Id ?? "");
+                    const canRecordThis =
+                      isPending && !isCompleted && (canManage || isUserInMatch);
 
                     return (
                       <div
@@ -421,7 +449,7 @@ export function EventSwissTournamentView({
                                 wins
                               </Badge>
                             )}
-                          {isPending && canManage && !isCompleted && (
+                          {canRecordThis && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -430,7 +458,7 @@ export function EventSwissTournamentView({
                               Record Result
                             </Button>
                           )}
-                          {isPending && !canManage && (
+                          {isPending && !canRecordThis && (
                             <Badge variant="outline">Pending</Badge>
                           )}
                         </div>

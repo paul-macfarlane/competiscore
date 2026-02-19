@@ -1,11 +1,12 @@
 import { LeagueBreadcrumb } from "@/components/league-breadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/server/auth";
-import { EventParticipantRole, GameCategory } from "@/lib/shared/constants";
+import { GameCategory } from "@/lib/shared/constants";
 import {
   buildEventParticipantOptions,
   buildEventTeamOptions,
 } from "@/lib/shared/participant-options";
+import { EventAction, canPerformEventAction } from "@/lib/shared/permissions";
 import { getEventGameTypes } from "@/services/event-game-types";
 import { getEventTeamMembersForParticipants } from "@/services/event-leaderboards";
 import { getEventTeams } from "@/services/event-teams";
@@ -90,7 +91,7 @@ async function RecordMatchContent({
 
   const event = eventResult.data;
 
-  if (event.role !== EventParticipantRole.ORGANIZER) {
+  if (!canPerformEventAction(event.role, EventAction.RECORD_MATCHES)) {
     redirect(`/events/${eventId}`);
   }
 

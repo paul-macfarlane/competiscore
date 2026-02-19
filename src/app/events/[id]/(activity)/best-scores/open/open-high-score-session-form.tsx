@@ -83,7 +83,7 @@ export function OpenHighScoreSessionForm({
         }
       } else if (result.data) {
         toast.success("Best score session opened!");
-        router.push(`/events/${eventId}/high-scores`);
+        router.push(`/events/${eventId}/best-scores`);
       }
     });
   };

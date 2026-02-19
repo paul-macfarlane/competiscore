@@ -47,6 +47,7 @@ export default async function MatchDetailPage({ params }: PageProps) {
   const side2 = match.participants.filter((p) => p.side === 2);
   const isH2H = side1.length > 0 && side2.length > 0;
   const isFFA = match.participants.some((p) => p.rank !== null);
+
   const scoreLabel = match.gameType?.config
     ? getScoreDescription(match.gameType.config, match.gameType.category)
     : undefined;

@@ -100,7 +100,7 @@ async function CloseSessionContent({
   }
 
   if (event.status !== EventStatus.ACTIVE) {
-    redirect(`/events/${eventId}/high-scores`);
+    redirect(`/events/${eventId}/best-scores`);
   }
 
   return (
@@ -108,7 +108,7 @@ async function CloseSessionContent({
       <LeagueBreadcrumb
         items={[
           { label: event.name, href: `/events/${eventId}` },
-          { label: "Best Scores", href: `/events/${eventId}/high-scores` },
+          { label: "Best Scores", href: `/events/${eventId}/best-scores` },
           { label: "Close Session" },
         ]}
       />
