@@ -1,4 +1,4 @@
-# Competiscore Web
+# Competiscore
 
 Competiscore is the best way to keep score of all the different games you play with your friends. Whether it’s Ping Pong, Pool, Pacman, Poker, or any other competition, Competiscore lets you track records, calculate rankings, run tournaments, and build friendly rivalries within your community.
 
