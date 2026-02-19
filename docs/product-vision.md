@@ -557,13 +557,19 @@ Invite links handle the same scenarios as league invite links (authenticated, no
 
 ### 8.16 Event Tournaments
 
-Events support single elimination tournaments with individual participants (representing their teams). Tournament matches earn points for the event leaderboard. Optional placement point config awards bonus points when the tournament completes.
+Events support single elimination and Swiss tournaments with individual participants (representing their teams). Tournament matches earn points for the event leaderboard. Optional placement point config awards bonus points when the tournament completes.
 
 **Best-of Series:** Each tournament round can have its own best-of setting (e.g., early rounds Bo1, semifinals Bo3, finals Bo5). Individual games within a series are tracked, and a winner is automatically determined when one side reaches the win threshold (e.g., 2 wins in a Bo3). A default best-of applies to all rounds, with optional per-round overrides configurable during the draft phase.
 
 **Recording:** Both organizers and participants can record tournament match results. Participants can only record results for matches they are involved in. In a best-of series, each game is recorded individually and the series advances automatically when one side clinches.
 
-**Undo:** Tournament match results can be undone (reverted). Participants can only undo results for matches they are involved in; organizers can undo any match. For best-of series, undoing removes the most recent game. If the series-deciding game is undone, the winner is un-advanced and the loser is un-eliminated. Undo is blocked if a subsequent match further down the bracket has already been played.
+**Undo:** Tournament match results can be undone (reverted). Participants can only undo results for matches they are involved in; organizers can undo any match. For best-of series, undoing removes the most recent game. If the series-deciding game is undone, the winner is un-advanced and the loser is un-eliminated. Undo is blocked if a subsequent match further down the bracket has already been played. For Swiss tournaments, undo is only available on the current (latest) round.
+
+**Swiss Tournament Management:** Organizers have additional controls for Swiss tournaments:
+
+- **Edit Pairings:** Before any matches are recorded in a round, organizers can manually adjust pairings by swapping participants between matchups (e.g., to avoid same-team matchups the algorithm can't detect). Uses a click-to-swap interaction — click one participant to select, click another to swap their positions. Participants can be swapped into or out of bye slots.
+- **Delete Round:** Organizers can delete the current round if no matches have been recorded, returning to the previous round. This allows organizers to undo match results from the previous round and regenerate pairings. Round 1 cannot be deleted.
+- **Generate Next Round:** When all matches in the current round are resolved but the next round hasn't been auto-generated (e.g., after deleting a round and the previous round was already complete), organizers can manually trigger next round generation.
 
 _Future: Tournament match editing (modify results in-place without undo)._
 
@@ -829,17 +835,18 @@ When `/dashboard` returns, it should show cross-league personal data:
 6. ~~Match and high score deletion with self-only restriction for participants~~
 7. ~~Per-activity point configuration (set at recording time), removed on delete~~
 8. ~~High score session flow (open → submit → close with optional placement points)~~
-9. ~~Event tournaments (single elimination, individual participants representing teams)~~
-10. ~~Tournament match undo with downstream bracket protection~~
+9. ~~Event tournaments (single elimination and Swiss, individual participants representing teams)~~
+10. ~~Tournament match undo with downstream bracket protection (Swiss: current round only)~~
 11. ~~Per-round best-of series configuration with individual game tracking~~
-12. ~~Event invitations (direct invite + invite links, private events only)~~
-13. ~~Placeholder member support~~
-14. ~~Top-level navigation (Events alongside Leagues in header)~~
-15. ~~Per-game-type individual leaderboards for high score game types~~
-16. ~~Discretionary points — organizers can award ad-hoc bonus/penalty points to teams~~
-17. ~~Event metrics dashboard — standings bar chart, points over time (clickable), team share pie chart, top contributors/category breakdown pie chart, scoring history log with detail links~~
-18. ~~Individual participant tracking on point entries for analytics attribution~~
-19. ~~Group/pair score submissions for event high score game types (`groupSize` > 1) — paired leaderboard display ("Name1 & Name2"), same-team enforcement, per-member point attribution~~
+12. ~~Swiss tournament management: edit pairings (swap-based), delete current round, manual next round generation~~
+13. ~~Event invitations (direct invite + invite links, private events only)~~
+14. ~~Placeholder member support~~
+15. ~~Top-level navigation (Events alongside Leagues in header)~~
+16. ~~Per-game-type individual leaderboards for high score game types~~
+17. ~~Discretionary points — organizers can award ad-hoc bonus/penalty points to teams~~
+18. ~~Event metrics dashboard — standings bar chart, points over time (clickable), team share pie chart, top contributors/category breakdown pie chart, scoring history log with detail links~~
+19. ~~Individual participant tracking on point entries for analytics attribution~~
+20. ~~Group/pair score submissions for event high score game types (`groupSize` > 1) — paired leaderboard display ("Name1 & Name2"), same-team enforcement, per-member point attribution~~
 
 ### Post-MVP Features
 
