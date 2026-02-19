@@ -93,7 +93,7 @@ async function OpenSessionContent({
   }
 
   if (event.status !== EventStatus.ACTIVE) {
-    redirect(`/events/${eventId}/high-scores`);
+    redirect(`/events/${eventId}/best-scores`);
   }
 
   const gameTypesResult = await getEventGameTypes(userId, eventId);
@@ -106,7 +106,7 @@ async function OpenSessionContent({
       <LeagueBreadcrumb
         items={[
           { label: event.name, href: `/events/${eventId}` },
-          { label: "Best Scores", href: `/events/${eventId}/high-scores` },
+          { label: "Best Scores", href: `/events/${eventId}/best-scores` },
           { label: "Open Session" },
         ]}
       />

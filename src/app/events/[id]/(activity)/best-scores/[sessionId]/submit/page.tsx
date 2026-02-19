@@ -127,7 +127,7 @@ async function SubmitScoreContent({
   const event = eventResult.data;
 
   if (event.status !== EventStatus.ACTIVE) {
-    redirect(`/events/${eventId}/high-scores`);
+    redirect(`/events/${eventId}/best-scores`);
   }
 
   const sessions = sessionsResult.data ?? [];
@@ -164,7 +164,7 @@ async function SubmitScoreContent({
       <LeagueBreadcrumb
         items={[
           { label: event.name, href: `/events/${eventId}` },
-          { label: "Best Scores", href: `/events/${eventId}/high-scores` },
+          { label: "Best Scores", href: `/events/${eventId}/best-scores` },
           { label: "Submit Score" },
         ]}
       />

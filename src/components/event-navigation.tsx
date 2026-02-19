@@ -16,7 +16,7 @@ interface EventNavigationProps {
   isOrganizer: boolean;
 }
 
-const ACTIVITY_PREFIXES = ["/matches", "/high-scores", "/tournaments"];
+const ACTIVITY_PREFIXES = ["/matches", "/best-scores", "/tournaments"];
 const PEOPLE_PREFIXES = ["/participants", "/teams"];
 const ORGANIZER_PREFIXES = ["/game-types", "/settings"];
 

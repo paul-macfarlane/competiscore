@@ -9,6 +9,17 @@ import {
   TournamentMatchProps,
 } from "@/components/record-h2h-match-form";
 import { TeamColorBadge } from "@/components/team-color-badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,10 +43,18 @@ import {
   computeSwissStandings,
   getSwissRanking,
 } from "@/lib/shared/swiss-pairing";
+import { Trash2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 
-import { recordEventTournamentMatchResultAction } from "../../../actions";
+import {
+  deleteSwissCurrentRoundAction,
+  generateNextEventSwissRoundAction,
+  recordEventTournamentMatchResultAction,
+  undoEventTournamentMatchResultAction,
+} from "../../../actions";
+import { EditSwissPairingsDialog } from "./edit-swiss-pairings-dialog";
 
 type PartnershipMember = {
   id: string;
@@ -103,7 +122,9 @@ type Props = {
   }[];
   totalRounds: number;
   canManage: boolean;
+  userParticipantIds?: string[];
   eventId: string;
+  eventTournamentId: string;
   isTeamTournament: boolean;
   isCompleted: boolean;
   config: H2HConfig;
@@ -184,7 +205,9 @@ export function EventSwissTournamentView({
   participants,
   totalRounds,
   canManage,
+  userParticipantIds = [],
   eventId,
+  eventTournamentId,
   isTeamTournament,
   isCompleted,
   config,
@@ -192,6 +215,7 @@ export function EventSwissTournamentView({
   const router = useRouter();
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const standings = useMemo(() => {
     const participantNames = participants.map((p) => ({
@@ -242,6 +266,48 @@ export function EventSwissTournamentView({
 
   const handleCancel = () => {
     setDialogOpen(false);
+  };
+
+  const handleUndo = (tournamentMatchId: string) => {
+    startTransition(async () => {
+      const result = await undoEventTournamentMatchResultAction({
+        tournamentMatchId,
+      });
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Match result undone");
+        router.refresh();
+      }
+    });
+  };
+
+  const handleDeleteRound = () => {
+    startTransition(async () => {
+      const result = await deleteSwissCurrentRoundAction({
+        eventTournamentId,
+      });
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Round deleted");
+        router.refresh();
+      }
+    });
+  };
+
+  const handleGenerateNextRound = () => {
+    startTransition(async () => {
+      const result = await generateNextEventSwissRoundAction({
+        eventTournamentId,
+      });
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Next round generated");
+        router.refresh();
+      }
+    });
   };
 
   const tournamentMatch: TournamentMatchProps | undefined = selectedMatch
@@ -344,20 +410,105 @@ export function EventSwissTournamentView({
             .filter((m) => m.round === round)
             .sort((a, b) => a.position - b.position);
 
+          const isCurrentRound = round === currentRound;
+          const noMatchesRecorded = roundMatches.every(
+            (m) => m.isBye || (m.winnerId === null && !m.isDraw),
+          );
+          const canEditThisRound =
+            canManage && !isCompleted && isCurrentRound && noMatchesRecorded;
+          const canDeleteThisRound =
+            canManage &&
+            !isCompleted &&
+            isCurrentRound &&
+            noMatchesRecorded &&
+            currentRound > 1;
+          const allMatchesResolved = roundMatches.every(
+            (m) => m.isBye || m.winnerId !== null || m.isDraw,
+          );
+          const canGenerateNextRound =
+            canManage &&
+            !isCompleted &&
+            isCurrentRound &&
+            allMatchesResolved &&
+            currentRound < totalRounds;
+
           return (
             <Card key={round}>
               <CardHeader>
-                <CardTitle className="text-base">Round {round}</CardTitle>
+                <CardTitle className="flex items-center justify-between text-base">
+                  <span>Round {round}</span>
+                  {(canEditThisRound || canDeleteThisRound) && (
+                    <div className="flex items-center gap-2">
+                      {canEditThisRound && (
+                        <EditSwissPairingsDialog
+                          eventTournamentId={eventTournamentId}
+                          round={round}
+                          matches={roundMatches}
+                          isTeamTournament={isTeamTournament}
+                          participantMap={participantMap}
+                        />
+                      )}
+                      {canDeleteThisRound && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isPending}
+                            >
+                              <Trash2 className="mr-1 h-3 w-3" />
+                              Delete Round
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Delete Round {round}?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will remove all pairings for this round and
+                                return to the previous round. You can then undo
+                                match results and regenerate pairings.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleDeleteRound}
+                                disabled={isPending}
+                              >
+                                Delete Round
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {roundMatches.map((match) => {
                     const isResolved =
                       match.winnerId !== null || match.isDraw || match.isBye;
-                    const isPending =
+                    const isMatchPending =
                       !isResolved &&
                       match.participant1Id &&
                       match.participant2Id;
+                    const isUserInMatch =
+                      userParticipantIds.includes(match.participant1Id ?? "") ||
+                      userParticipantIds.includes(match.participant2Id ?? "");
+                    const canRecordThis =
+                      isMatchPending &&
+                      !isCompleted &&
+                      (canManage || isUserInMatch);
+                    const canUndoThis =
+                      isResolved &&
+                      !match.isBye &&
+                      !isCompleted &&
+                      isCurrentRound &&
+                      (canManage || isUserInMatch);
 
                     return (
                       <div
@@ -397,7 +548,7 @@ export function EventSwissTournamentView({
                             </div>
                           )}
                         </div>
-                        <div className="ml-2 shrink-0">
+                        <div className="ml-2 flex shrink-0 items-center gap-2">
                           {match.isDraw && (
                             <Badge variant="secondary">Draw</Badge>
                           )}
@@ -421,7 +572,19 @@ export function EventSwissTournamentView({
                                 wins
                               </Badge>
                             )}
-                          {isPending && canManage && !isCompleted && (
+                          {canUndoThis && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              disabled={isPending}
+                              onClick={() => handleUndo(match.id)}
+                              title="Undo result"
+                            >
+                              <Undo2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {canRecordThis && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -430,7 +593,7 @@ export function EventSwissTournamentView({
                               Record Result
                             </Button>
                           )}
-                          {isPending && !canManage && (
+                          {isMatchPending && !canRecordThis && (
                             <Badge variant="outline">Pending</Badge>
                           )}
                         </div>
@@ -438,6 +601,16 @@ export function EventSwissTournamentView({
                     );
                   })}
                 </div>
+                {canGenerateNextRound && (
+                  <div className="mt-4 flex justify-center">
+                    <Button
+                      onClick={handleGenerateNextRound}
+                      disabled={isPending}
+                    >
+                      {isPending ? "Generating..." : "Generate Next Round"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );

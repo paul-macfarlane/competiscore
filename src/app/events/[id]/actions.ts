@@ -62,6 +62,7 @@ import {
   addEventTournamentPartnership,
   createEventTournament,
   deleteEventTournament,
+  deleteSwissCurrentRound,
   forfeitEventTournamentMatch,
   generateEventBracket,
   generateNextEventSwissRound,
@@ -70,6 +71,7 @@ import {
   setEventParticipantSeeds,
   undoEventTournamentMatchResult,
   updateEventTournament,
+  updateSwissRoundPairings,
 } from "@/services/event-tournaments";
 import {
   archiveEvent,
@@ -730,6 +732,19 @@ export async function undoEventTournamentMatchResultAction(
   return result;
 }
 
+export async function updateSwissRoundPairingsAction(
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await updateSwissRoundPairings(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
 export async function generateNextEventSwissRoundAction(
   input: unknown,
 ): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
@@ -737,6 +752,19 @@ export async function generateNextEventSwissRoundAction(
   if (!userId) return { error: "Unauthorized" };
 
   const result = await generateNextEventSwissRound(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+export async function deleteSwissCurrentRoundAction(
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await deleteSwissCurrentRound(userId, input);
   if (result.data) {
     revalidatePath(`/events/${result.data.eventId}`);
   }

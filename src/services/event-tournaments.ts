@@ -12,6 +12,7 @@ import {
   countEventTournamentsByEventId as dbCountTournaments,
   createEventTournamentRoundMatches as dbCreateRoundMatches,
   createEventTournament as dbCreateTournament,
+  deleteEventTournamentRoundMatchesByRound as dbDeleteRoundMatchesByRound,
   deleteEventTournament as dbDeleteTournament,
   getEventTournamentBracket as dbGetBracket,
   getEventTournamentParticipantById as dbGetParticipantById,
@@ -85,6 +86,7 @@ import {
   setEventParticipantSeedsSchema,
   undoEventTournamentMatchResultSchema,
   updateEventTournamentSchema,
+  updateSwissRoundPairingsSchema,
 } from "@/validators/events";
 
 import {
@@ -2041,12 +2043,51 @@ export async function undoEventTournamentMatchResult(
     return { error: "You are not a participant in this event" };
   }
 
-  if (
-    !canPerformEventAction(participation.role, EventAction.CREATE_TOURNAMENTS)
-  ) {
+  if (!canPerformEventAction(participation.role, EventAction.RECORD_MATCHES)) {
     return {
       error: "You do not have permission to manage tournament matches",
     };
+  }
+
+  const isTeamTournament =
+    tournamentData.participantType === ParticipantType.TEAM;
+
+  if (
+    !canPerformEventAction(
+      participation.role,
+      EventAction.RECORD_MATCHES_FOR_OTHERS,
+    )
+  ) {
+    if (isTeamTournament) {
+      return {
+        error: "Only organizers can undo team tournament match results",
+      };
+    }
+    const p1 = roundMatch.participant1Id
+      ? await dbGetParticipantById(roundMatch.participant1Id)
+      : null;
+    const p2 = roundMatch.participant2Id
+      ? await dbGetParticipantById(roundMatch.participant2Id)
+      : null;
+    let isInvolved = p1?.userId === userId || p2?.userId === userId;
+    if (!isInvolved) {
+      const [p1Members, p2Members] = await Promise.all([
+        roundMatch.participant1Id
+          ? dbGetParticipantMembers(roundMatch.participant1Id)
+          : [],
+        roundMatch.participant2Id
+          ? dbGetParticipantMembers(roundMatch.participant2Id)
+          : [],
+      ]);
+      isInvolved =
+        p1Members.some((m) => m.user?.id === userId) ||
+        p2Members.some((m) => m.user?.id === userId);
+    }
+    if (!isInvolved) {
+      return {
+        error: "You can only undo results for matches you're involved in",
+      };
+    }
   }
 
   const isSwiss = tournamentData.tournamentType === TournamentType.SWISS;
@@ -2249,6 +2290,151 @@ export async function undoEventTournamentMatchResult(
   });
 }
 
+export async function updateSwissRoundPairings(
+  userId: string,
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const parsed = updateSwissRoundPairingsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: "Validation failed",
+      fieldErrors: formatZodErrors(parsed.error),
+    };
+  }
+
+  const data = parsed.data;
+
+  const tournamentData = await dbGetTournamentById(data.eventTournamentId);
+  if (!tournamentData) {
+    return { error: "Tournament not found" };
+  }
+
+  if (tournamentData.tournamentType !== TournamentType.SWISS) {
+    return { error: "This action is only for Swiss tournaments" };
+  }
+
+  if (tournamentData.status !== TournamentStatus.IN_PROGRESS) {
+    return { error: "Tournament is not in progress" };
+  }
+
+  const participation = await getEventParticipant(
+    tournamentData.eventId,
+    userId,
+  );
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  if (
+    !canPerformEventAction(participation.role, EventAction.CREATE_TOURNAMENTS)
+  ) {
+    return { error: "You do not have permission to manage tournaments" };
+  }
+
+  const bracket = await dbGetBracket(data.eventTournamentId);
+  if (bracket.length === 0) {
+    return { error: "No rounds exist yet" };
+  }
+
+  const currentRound = Math.max(...bracket.map((m) => m.round));
+  if (data.round !== currentRound) {
+    return { error: "Can only edit pairings for the current round" };
+  }
+
+  const roundMatches = bracket.filter((m) => m.round === data.round);
+
+  // Verify no matches have been recorded in this round (excluding byes)
+  const hasRecordedMatches = roundMatches.some(
+    (m) =>
+      !m.isBye && (m.winnerId !== null || m.isDraw || m.eventMatchId !== null),
+  );
+  if (hasRecordedMatches) {
+    return {
+      error: "Cannot edit pairings after matches have been recorded",
+    };
+  }
+
+  // Validate participant IDs: collect all from existing round
+  const participants = await dbGetParticipants(data.eventTournamentId);
+  const validParticipantIds = new Set(participants.map((p) => p.id));
+
+  // Collect all participant IDs from new pairings
+  const newParticipantIds: string[] = [];
+  let byeCount = 0;
+  for (const pairing of data.pairings) {
+    if (!validParticipantIds.has(pairing.participant1Id)) {
+      return { error: "Invalid participant ID in pairings" };
+    }
+    newParticipantIds.push(pairing.participant1Id);
+
+    if (pairing.isBye) {
+      byeCount++;
+      if (pairing.participant2Id !== null) {
+        return { error: "Bye matches must not have a second participant" };
+      }
+    } else {
+      if (pairing.participant2Id === null) {
+        return { error: "Non-bye matches must have two participants" };
+      }
+      if (!validParticipantIds.has(pairing.participant2Id)) {
+        return { error: "Invalid participant ID in pairings" };
+      }
+      newParticipantIds.push(pairing.participant2Id);
+    }
+  }
+
+  // Each participant must appear exactly once
+  if (newParticipantIds.length !== new Set(newParticipantIds).size) {
+    return { error: "Each participant must appear exactly once in pairings" };
+  }
+
+  if (newParticipantIds.length !== participants.length) {
+    return { error: "Pairings must include all tournament participants" };
+  }
+
+  // Validate bye count: should be 0 or 1 (1 if odd number of participants)
+  const expectedByeCount = participants.length % 2 === 1 ? 1 : 0;
+  if (byeCount !== expectedByeCount) {
+    return {
+      error:
+        expectedByeCount === 0
+          ? "No byes should exist with an even number of participants"
+          : "Exactly one bye is required with an odd number of participants",
+    };
+  }
+
+  return withTransaction(async (tx) => {
+    await dbDeleteRoundMatchesByRound(data.eventTournamentId, data.round, tx);
+
+    const roundMatchData = data.pairings.map((pairing, i) => ({
+      eventTournamentId: data.eventTournamentId,
+      round: data.round,
+      position: i + 1,
+      participant1Id: pairing.participant1Id,
+      participant2Id: pairing.participant2Id,
+      winnerId: pairing.isBye
+        ? pairing.participant1Id
+        : (null as string | null),
+      eventMatchId: null as string | null,
+      isBye: pairing.isBye,
+      isForfeit: false,
+      participant1Score: null as number | null,
+      participant2Score: null as number | null,
+      nextMatchId: null as string | null,
+      nextMatchSlot: null as number | null,
+    }));
+
+    await dbCreateRoundMatches(roundMatchData, tx);
+
+    return {
+      data: {
+        eventTournamentId: data.eventTournamentId,
+        eventId: tournamentData.eventId,
+      },
+    };
+  });
+}
+
 export async function generateNextEventSwissRound(
   userId: string,
   input: unknown,
@@ -2325,4 +2511,76 @@ export async function generateNextEventSwissRound(
       },
     };
   });
+}
+
+export async function deleteSwissCurrentRound(
+  userId: string,
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const parsed = eventTournamentIdSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: "Validation failed",
+      fieldErrors: formatZodErrors(parsed.error),
+    };
+  }
+
+  const { eventTournamentId } = parsed.data;
+
+  const tournamentData = await dbGetTournamentById(eventTournamentId);
+  if (!tournamentData) {
+    return { error: "Tournament not found" };
+  }
+
+  if (tournamentData.tournamentType !== TournamentType.SWISS) {
+    return { error: "This action is only for Swiss tournaments" };
+  }
+
+  if (tournamentData.status !== TournamentStatus.IN_PROGRESS) {
+    return { error: "Tournament is not in progress" };
+  }
+
+  const participation = await getEventParticipant(
+    tournamentData.eventId,
+    userId,
+  );
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  if (
+    !canPerformEventAction(participation.role, EventAction.CREATE_TOURNAMENTS)
+  ) {
+    return { error: "You do not have permission to manage tournaments" };
+  }
+
+  const bracket = await dbGetBracket(eventTournamentId);
+  if (bracket.length === 0) {
+    return { error: "No rounds exist yet" };
+  }
+
+  const currentRound = Math.max(...bracket.map((m) => m.round));
+  if (currentRound <= 1) {
+    return { error: "Cannot delete the first round" };
+  }
+
+  const roundMatches = bracket.filter((m) => m.round === currentRound);
+  const hasRecordedMatches = roundMatches.some(
+    (m) =>
+      !m.isBye && (m.winnerId !== null || m.isDraw || m.eventMatchId !== null),
+  );
+  if (hasRecordedMatches) {
+    return {
+      error: "Cannot delete round with recorded matches",
+    };
+  }
+
+  await dbDeleteRoundMatchesByRound(eventTournamentId, currentRound);
+
+  return {
+    data: {
+      eventTournamentId,
+      eventId: tournamentData.eventId,
+    },
+  };
 }

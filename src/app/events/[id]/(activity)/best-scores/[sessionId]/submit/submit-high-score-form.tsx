@@ -144,7 +144,7 @@ function IndividualHighScoreForm({
         }
       } else if (result.data) {
         toast.success("Score submitted!");
-        router.push(`/events/${eventId}/high-scores`);
+        router.push(`/events/${eventId}/best-scores`);
       }
     });
   };
@@ -374,7 +374,7 @@ function PairHighScoreForm({
         }
       } else if (result.data) {
         toast.success("Score submitted!");
-        router.push(`/events/${eventId}/high-scores`);
+        router.push(`/events/${eventId}/best-scores`);
       }
     });
   };
