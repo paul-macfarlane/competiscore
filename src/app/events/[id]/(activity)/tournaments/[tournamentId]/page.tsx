@@ -47,6 +47,7 @@ import { DraftEventActions } from "./draft-event-actions";
 import { EventSwissTournamentView } from "./event-swiss-tournament-view";
 import { EventTournamentBracketView } from "./event-tournament-bracket-view";
 import { ManageEventTournamentParticipants } from "./manage-event-tournament-participants";
+import { RevertToDraftDialog } from "./revert-to-draft-dialog";
 
 function getOrdinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -201,6 +202,9 @@ export default async function EventTournamentDetailPage({ params }: Props) {
                   Edit
                 </Link>
               </Button>
+              {isInProgress && !hasMatchesPlayed && (
+                <RevertToDraftDialog tournamentId={tournamentId} />
+              )}
               <DeleteEventTournamentDialog
                 tournamentId={tournamentId}
                 eventId={eventId}

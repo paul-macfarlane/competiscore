@@ -643,6 +643,21 @@ export async function deleteAllEventTournamentRoundMatches(
     .where(eq(eventTournamentRoundMatch.eventTournamentId, eventTournamentId));
 }
 
+export async function resetAllEventTournamentParticipants(
+  eventTournamentId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eventTournamentParticipant)
+    .set({
+      seed: null,
+      isEliminated: false,
+      eliminatedInRound: null,
+      finalPlacement: null,
+    })
+    .where(eq(eventTournamentParticipant.eventTournamentId, eventTournamentId));
+}
+
 export type EventTournamentMatchInfo = {
   matchId: string;
   tournamentId: string;

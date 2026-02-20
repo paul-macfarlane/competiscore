@@ -20,6 +20,7 @@ import {
   getEventTournamentWithDetails as dbGetTournamentWithDetails,
   getEventTournamentsByEventId as dbGetTournamentsByEventId,
   removeEventTournamentParticipant as dbRemoveParticipant,
+  resetAllEventTournamentParticipants as dbResetAllParticipants,
   updateEventTournamentParticipant as dbUpdateParticipant,
   updateEventTournamentRoundMatch as dbUpdateRoundMatch,
   updateEventTournament as dbUpdateTournament,
@@ -52,6 +53,7 @@ import {
   recordEventTournamentMatchResult,
   removeEventTournamentParticipant,
   reseedEventTournament,
+  revertEventTournamentToDraft,
   setEventParticipantSeeds,
   undoEventTournamentMatchResult,
   updateEventTournament,
@@ -109,6 +111,7 @@ vi.mock("@/db/event-tournaments", () => ({
   createEventTournamentRoundMatches: vi.fn(),
   deleteAllEventTournamentRoundMatches: vi.fn(),
   deleteEventTournamentRoundMatchesByRound: vi.fn(),
+  resetAllEventTournamentParticipants: vi.fn(),
   getEventTournamentBracket: vi.fn(),
   getEventTournamentRoundMatchById: vi.fn(),
   updateEventTournamentRoundMatch: vi.fn(),
@@ -2729,6 +2732,117 @@ describe("reseedEventTournament", () => {
     vi.mocked(dbUpdateTournament).mockResolvedValue(undefined as never);
 
     const result = await reseedEventTournament(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+    });
+    expect(result.data?.eventTournamentId).toBe(TEST_IDS.EVENT_TOURNAMENT_ID);
+    expect(result.data?.eventId).toBe(TEST_IDS.EVENT_ID);
+  });
+});
+
+describe("revertEventTournamentToDraft", () => {
+  const P1_ID = "b53e4567-e89b-12d3-a456-426614174000";
+  const P2_ID = "b53e4567-e89b-12d3-a456-426614174001";
+  const MATCH1_ID = "c53e4567-e89b-12d3-a456-426614174000";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns validation error for invalid input", async () => {
+    const result = await revertEventTournamentToDraft(TEST_IDS.USER_ID, {});
+    expect(result.error).toBe("Validation failed");
+  });
+
+  it("returns error if tournament not found", async () => {
+    vi.mocked(dbGetTournamentById).mockResolvedValue(undefined);
+    const result = await revertEventTournamentToDraft(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+    });
+    expect(result.error).toBe("Tournament not found");
+  });
+
+  it("returns error if tournament not in progress", async () => {
+    mockTournament({ status: "draft" });
+    const result = await revertEventTournamentToDraft(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+    });
+    expect(result.error).toBe(
+      "Tournament must be in progress to revert to draft",
+    );
+  });
+
+  it("returns error if user lacks permission", async () => {
+    mockInProgressTournament();
+    mockParticipantMember();
+    const result = await revertEventTournamentToDraft(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+    });
+    expect(result.error).toBe(
+      "You do not have permission to manage tournaments",
+    );
+  });
+
+  it("returns error if matches have been played", async () => {
+    mockInProgressTournament();
+    mockOrganizerMember();
+    vi.mocked(dbGetBracket).mockResolvedValue([
+      {
+        id: MATCH1_ID,
+        eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+        round: 1,
+        position: 1,
+        participant1Id: P1_ID,
+        participant2Id: P2_ID,
+        winnerId: P1_ID,
+        isDraw: false,
+        eventMatchId: null,
+        isBye: false,
+        isForfeit: false,
+        participant1Score: null,
+        participant2Score: null,
+        nextMatchId: null,
+        nextMatchSlot: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ] as ReturnType<typeof dbGetBracket> extends Promise<infer T> ? T : never);
+    const result = await revertEventTournamentToDraft(TEST_IDS.USER_ID, {
+      eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+    });
+    expect(result.error).toBe(
+      "Cannot revert to draft after matches have been played",
+    );
+  });
+
+  it("successfully reverts tournament to draft", async () => {
+    mockInProgressTournament();
+    mockOrganizerMember();
+    vi.mocked(dbGetBracket).mockResolvedValue([
+      {
+        id: MATCH1_ID,
+        eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
+        round: 1,
+        position: 1,
+        participant1Id: P1_ID,
+        participant2Id: P2_ID,
+        winnerId: null,
+        isDraw: false,
+        eventMatchId: null,
+        isBye: false,
+        isForfeit: false,
+        participant1Score: null,
+        participant2Score: null,
+        nextMatchId: null,
+        nextMatchSlot: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ] as ReturnType<typeof dbGetBracket> extends Promise<infer T> ? T : never);
+    vi.mocked(dbDeleteAllRoundMatches).mockResolvedValue(undefined);
+    vi.mocked(dbResetAllParticipants).mockResolvedValue(undefined);
+    vi.mocked(dbUpdateTournament).mockResolvedValue(undefined as never);
+
+    const result = await revertEventTournamentToDraft(TEST_IDS.USER_ID, {
       eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID,
     });
     expect(result.data?.eventTournamentId).toBe(TEST_IDS.EVENT_TOURNAMENT_ID);

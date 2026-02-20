@@ -25,6 +25,7 @@ import {
   getEventTournamentWithDetails as dbGetTournamentWithDetails,
   getEventTournamentsByEventId as dbGetTournamentsByEventId,
   removeEventTournamentParticipant as dbRemoveParticipant,
+  resetAllEventTournamentParticipants as dbResetAllParticipants,
   updateEventTournamentParticipant as dbUpdateParticipant,
   updateEventTournamentRoundMatch as dbUpdateRoundMatch,
   updateEventTournament as dbUpdateTournament,
@@ -2797,6 +2798,72 @@ export async function reseedEventTournament(
     }
 
     await dbUpdateTournament(eventTournamentId, { totalRounds }, tx);
+
+    return {
+      data: {
+        eventTournamentId,
+        eventId: tournamentData.eventId,
+      },
+    };
+  });
+}
+
+export async function revertEventTournamentToDraft(
+  userId: string,
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const parsed = eventTournamentIdSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: "Validation failed",
+      fieldErrors: formatZodErrors(parsed.error),
+    };
+  }
+
+  const { eventTournamentId } = parsed.data;
+
+  const tournamentData = await dbGetTournamentById(eventTournamentId);
+  if (!tournamentData) {
+    return { error: "Tournament not found" };
+  }
+
+  if (tournamentData.status !== TournamentStatus.IN_PROGRESS) {
+    return { error: "Tournament must be in progress to revert to draft" };
+  }
+
+  const participation = await getEventParticipant(
+    tournamentData.eventId,
+    userId,
+  );
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  if (
+    !canPerformEventAction(participation.role, EventAction.CREATE_TOURNAMENTS)
+  ) {
+    return { error: "You do not have permission to manage tournaments" };
+  }
+
+  const bracket = await dbGetBracket(eventTournamentId);
+  const hasMatchesPlayed = bracket.some(
+    (m) =>
+      !m.isBye && (m.winnerId !== null || m.isDraw || m.eventMatchId !== null),
+  );
+  if (hasMatchesPlayed) {
+    return {
+      error: "Cannot revert to draft after matches have been played",
+    };
+  }
+
+  return withTransaction(async (tx) => {
+    await dbDeleteAllRoundMatches(eventTournamentId, tx);
+    await dbResetAllParticipants(eventTournamentId, tx);
+    await dbUpdateTournament(
+      eventTournamentId,
+      { status: TournamentStatus.DRAFT, totalRounds: null },
+      tx,
+    );
 
     return {
       data: {

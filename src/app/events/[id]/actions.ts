@@ -69,6 +69,7 @@ import {
   recordEventTournamentMatchResult,
   removeEventTournamentParticipant,
   reseedEventTournament,
+  revertEventTournamentToDraft,
   setEventParticipantSeeds,
   undoEventTournamentMatchResult,
   updateEventTournament,
@@ -779,6 +780,19 @@ export async function reseedEventTournamentAction(
   if (!userId) return { error: "Unauthorized" };
 
   const result = await reseedEventTournament(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+export async function revertEventTournamentToDraftAction(
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await revertEventTournamentToDraft(userId, input);
   if (result.data) {
     revalidatePath(`/events/${result.data.eventId}`);
   }
