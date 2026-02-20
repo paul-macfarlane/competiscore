@@ -5,6 +5,7 @@ import {
   TournamentMatchProps,
 } from "@/components/record-h2h-match-form";
 import { TeamColorBadge } from "@/components/team-color-badge";
+import { TournamentBracket } from "@/components/tournament-bracket";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +76,8 @@ type BracketMatch = {
   participant2Wins: number;
   winnerId: string | null;
   eventMatchId: string | null;
+  nextMatchId: string | null;
+  isBye: boolean;
 };
 
 type Props = {
@@ -106,13 +109,6 @@ function getRoundBestOf(
     }
   }
   return bestOf;
-}
-
-function getRoundLabel(round: number, totalRounds: number): string {
-  if (round === totalRounds) return "Final";
-  if (round === totalRounds - 1) return "Semifinal";
-  if (round === totalRounds - 2) return "Quarterfinal";
-  return `Round ${round}`;
 }
 
 function getParticipantName(
@@ -152,17 +148,6 @@ export function EventTournamentBracketView({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isReseeding, startReseedTransition] = useTransition();
 
-  const rounds: Map<number, BracketMatch[]> = new Map();
-  for (const match of bracket) {
-    const existing = rounds.get(match.round) ?? [];
-    existing.push(match);
-    rounds.set(match.round, existing);
-  }
-
-  for (const [, matches] of rounds) {
-    matches.sort((a, b) => a.position - b.position);
-  }
-
   const isUserInMatch = (match: BracketMatch) =>
     userParticipantIds.includes(match.participant1?.id ?? "") ||
     userParticipantIds.includes(match.participant2?.id ?? "");
@@ -198,6 +183,9 @@ export function EventTournamentBracketView({
       }
     });
   };
+
+  const finalMatch = bracket.find((m) => m.round === totalRounds && m.winnerId);
+  const championParticipantId = finalMatch?.winnerId ?? undefined;
 
   const tournamentMatch: TournamentMatchProps | undefined = selectedMatch
     ? {
@@ -251,6 +239,21 @@ export function EventTournamentBracketView({
     match.participant2 != null &&
     (canManage || isUserInMatch(match));
 
+  const renderMatchCard = (match: BracketMatch) => {
+    const roundBo = getRoundBestOf(match.round, defaultBestOf, roundBestOf);
+    return (
+      <MatchCard
+        match={match}
+        canUndoThis={canManage || isUserInMatch(match)}
+        isTeamTournament={isTeamTournament}
+        clickable={isClickable(match)}
+        onClick={() => handleMatchClick(match)}
+        totalRounds={totalRounds}
+        roundBestOf={roundBo}
+      />
+    );
+  };
+
   return (
     <>
       {canManage && !hasMatchesPlayed && (
@@ -283,37 +286,12 @@ export function EventTournamentBracketView({
           </AlertDialog>
         </div>
       )}
-      <div className="flex gap-6 overflow-x-auto pb-4">
-        {Array.from({ length: totalRounds }, (_, i) => i + 1).map((round) => {
-          const matches = rounds.get(round) ?? [];
-          return (
-            <div key={round} className="flex min-w-[220px] flex-col gap-4">
-              <h3 className="text-center text-sm font-semibold">
-                {getRoundLabel(round, totalRounds)}
-              </h3>
-              <div className="flex flex-1 flex-col justify-around gap-4">
-                {matches.map((match) => (
-                  <MatchCard
-                    key={match.id}
-                    match={match}
-                    canUndoThis={canManage || isUserInMatch(match)}
-                    isTeamTournament={isTeamTournament}
-                    clickable={isClickable(match)}
-                    onClick={() => handleMatchClick(match)}
-                    round={round}
-                    totalRounds={totalRounds}
-                    roundBestOf={getRoundBestOf(
-                      round,
-                      defaultBestOf,
-                      roundBestOf,
-                    )}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <TournamentBracket
+        bracket={bracket}
+        totalRounds={totalRounds}
+        renderMatchCard={renderMatchCard}
+        championParticipantId={championParticipantId}
+      />
       {config && (
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -361,7 +339,6 @@ function MatchCard({
   isTeamTournament,
   clickable,
   onClick,
-  round,
   totalRounds,
   roundBestOf,
 }: {
@@ -370,7 +347,6 @@ function MatchCard({
   isTeamTournament?: boolean;
   clickable?: boolean;
   onClick?: () => void;
-  round: number;
   totalRounds: number;
   roundBestOf: number;
 }) {
@@ -421,7 +397,7 @@ function MatchCard({
           isTeamTournament={isTeamTournament}
         />
       </CardContent>
-      {isSeriesDecided && round === totalRounds && (
+      {isSeriesDecided && match.round === totalRounds && (
         <div className="border-t px-3 py-1 flex items-center justify-center gap-1 text-xs font-medium text-rank-gold-text bg-rank-gold-bg">
           <Trophy className="h-3 w-3" />
           Champion
