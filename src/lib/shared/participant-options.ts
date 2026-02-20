@@ -11,6 +11,7 @@ export type ParticipantOption = {
   image?: string | null;
   username?: string;
   isSuspended?: boolean;
+  teamId?: string;
   teamName?: string;
   teamColor?: string | null;
 };
@@ -80,6 +81,7 @@ export function buildEventParticipantOptions(
         name: member.user.name,
         image: member.user.image,
         username: member.user.username,
+        teamId: member.teamId,
         teamName: member.teamName,
         teamColor: member.teamColor,
       });
@@ -91,6 +93,7 @@ export function buildEventParticipantOptions(
         id: member.eventPlaceholderParticipantId,
         type: MatchParticipantType.PLACEHOLDER,
         name: member.placeholderParticipant.displayName,
+        teamId: member.teamId,
         teamName: member.teamName,
         teamColor: member.teamColor,
       });

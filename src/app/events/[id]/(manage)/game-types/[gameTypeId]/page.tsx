@@ -254,6 +254,16 @@ function FFAConfigDisplay({ config }: { config: FFAConfig }) {
             : "Team"}
         </span>
       </div>
+      {(config.maxGroupSize ?? 1) > 1 && (
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Group Size:</span>
+          <span className="font-medium">
+            {(config.minGroupSize ?? 1) === (config.maxGroupSize ?? 1)
+              ? `${config.maxGroupSize} per group`
+              : `${config.minGroupSize ?? 1}-${config.maxGroupSize} per group`}
+          </span>
+        </div>
+      )}
       {config.rules && (
         <div className="space-y-2 pt-2 border-t">
           <span className="text-muted-foreground text-sm font-medium">

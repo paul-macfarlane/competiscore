@@ -17,6 +17,7 @@ vi.mock("@/db/index", () => ({
 vi.mock("@/db/events", () => ({
   createEventMatch: vi.fn(),
   createEventMatchParticipants: vi.fn(),
+  createEventMatchParticipantMembers: vi.fn(),
   createEventPointEntries: vi.fn(),
   createEventPointEntryParticipants: vi.fn(),
   getEventById: vi.fn(),
@@ -73,6 +74,21 @@ const mockFFAGameType = {
   config: JSON.stringify({
     scoringType: "ranked_finish",
     participantType: "individual",
+  }),
+};
+
+const mockGroupedFFAGameType = {
+  ...mockGameType,
+  name: "Doubles Bowling",
+  category: GameCategory.FREE_FOR_ALL,
+  config: JSON.stringify({
+    scoringType: "score_based",
+    scoreOrder: "highest_wins",
+    participantType: "individual",
+    minPlayers: 2,
+    maxPlayers: 10,
+    minGroupSize: 2,
+    maxGroupSize: 2,
   }),
 };
 
@@ -389,5 +405,337 @@ describe("recordEventFFAMatch", () => {
 
     expect(result.data?.match.id).toBe(TEST_IDS.EVENT_MATCH_ID);
     expect(result.data?.eventId).toBe(TEST_IDS.EVENT_ID);
+  });
+
+  it("returns error when grouped entries used with non-grouped config", async () => {
+    vi.mocked(dbEvents.getEventParticipant).mockResolvedValue(
+      mockOrganizerMember as never,
+    );
+    vi.mocked(dbEvents.getEventById).mockResolvedValue(
+      mockActiveEvent as never,
+    );
+    vi.mocked(dbEvents.getEventGameTypeById).mockResolvedValue(
+      mockFFAGameType as never,
+    );
+
+    const result = await recordEventFFAMatch(TEST_IDS.USER_ID, {
+      eventId: TEST_IDS.EVENT_ID,
+      gameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(Date.now() - 1000),
+      participants: [
+        {
+          rank: 1,
+          points: 3,
+          members: [
+            { userId: TEST_IDS.USER_ID },
+            { userId: TEST_IDS.USER_ID_2 },
+          ],
+        },
+        {
+          rank: 2,
+          points: 1,
+          members: [
+            { userId: TEST_IDS.USER_ID_3 },
+            { userId: TEST_IDS.USER_ID_4 },
+          ],
+        },
+      ],
+    });
+
+    expect(result.error).toBe(
+      "This game type does not support grouped participants - do not provide members",
+    );
+  });
+
+  it("returns success creating grouped FFA match", async () => {
+    vi.mocked(dbEvents.getEventParticipant).mockResolvedValue(
+      mockOrganizerMember as never,
+    );
+    vi.mocked(dbEvents.getEventById).mockResolvedValue(
+      mockActiveEvent as never,
+    );
+    vi.mocked(dbEvents.getEventGameTypeById).mockResolvedValue(
+      mockGroupedFFAGameType as never,
+    );
+    vi.mocked(dbEvents.getTeamForUser)
+      .mockResolvedValueOnce(mockTeam1 as never)
+      .mockResolvedValueOnce(mockTeam1 as never)
+      .mockResolvedValueOnce(mockTeam2 as never)
+      .mockResolvedValueOnce(mockTeam2 as never);
+    vi.mocked(dbEvents.createEventMatch).mockResolvedValue(mockMatch as never);
+    vi.mocked(dbEvents.createEventMatchParticipants).mockResolvedValue([
+      { id: "mp-1" },
+      { id: "mp-2" },
+    ] as never);
+    vi.mocked(dbEvents.createEventMatchParticipantMembers).mockResolvedValue(
+      undefined as never,
+    );
+    vi.mocked(dbEvents.createEventPointEntries).mockResolvedValue([
+      { id: "pe-1" },
+      { id: "pe-2" },
+    ] as never);
+
+    const result = await recordEventFFAMatch(TEST_IDS.USER_ID, {
+      eventId: TEST_IDS.EVENT_ID,
+      gameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(Date.now() - 1000),
+      participants: [
+        {
+          rank: 1,
+          score: 200,
+          points: 3,
+          members: [
+            { userId: TEST_IDS.USER_ID },
+            { userId: TEST_IDS.USER_ID_2 },
+          ],
+        },
+        {
+          rank: 2,
+          score: 150,
+          points: 1,
+          members: [
+            { userId: TEST_IDS.USER_ID_3 },
+            { userId: TEST_IDS.USER_ID_4 },
+          ],
+        },
+      ],
+    });
+
+    expect(result.data?.match.id).toBe(TEST_IDS.EVENT_MATCH_ID);
+    expect(result.data?.eventId).toBe(TEST_IDS.EVENT_ID);
+  });
+
+  it("returns error when grouped members are on different teams", async () => {
+    vi.mocked(dbEvents.getEventParticipant).mockResolvedValue(
+      mockOrganizerMember as never,
+    );
+    vi.mocked(dbEvents.getEventById).mockResolvedValue(
+      mockActiveEvent as never,
+    );
+    vi.mocked(dbEvents.getEventGameTypeById).mockResolvedValue(
+      mockGroupedFFAGameType as never,
+    );
+    vi.mocked(dbEvents.getTeamForUser)
+      .mockResolvedValueOnce(mockTeam1 as never)
+      .mockResolvedValueOnce(mockTeam2 as never);
+
+    const result = await recordEventFFAMatch(TEST_IDS.USER_ID, {
+      eventId: TEST_IDS.EVENT_ID,
+      gameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(Date.now() - 1000),
+      participants: [
+        {
+          rank: 1,
+          score: 200,
+          members: [
+            { userId: TEST_IDS.USER_ID },
+            { userId: TEST_IDS.USER_ID_2 },
+          ],
+        },
+        {
+          rank: 2,
+          score: 150,
+          members: [
+            { userId: TEST_IDS.USER_ID_3 },
+            { userId: TEST_IDS.USER_ID_4 },
+          ],
+        },
+      ],
+    });
+
+    expect(result.error).toBe(
+      "All members in a group must be on the same team",
+    );
+  });
+
+  it("returns error when group size exceeds max", async () => {
+    vi.mocked(dbEvents.getEventParticipant).mockResolvedValue(
+      mockOrganizerMember as never,
+    );
+    vi.mocked(dbEvents.getEventById).mockResolvedValue(
+      mockActiveEvent as never,
+    );
+    vi.mocked(dbEvents.getEventGameTypeById).mockResolvedValue(
+      mockGroupedFFAGameType as never,
+    );
+
+    const result = await recordEventFFAMatch(TEST_IDS.USER_ID, {
+      eventId: TEST_IDS.EVENT_ID,
+      gameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(Date.now() - 1000),
+      participants: [
+        {
+          rank: 1,
+          score: 200,
+          members: [
+            { userId: TEST_IDS.USER_ID },
+            { userId: TEST_IDS.USER_ID_2 },
+            { userId: TEST_IDS.USER_ID_3 },
+          ],
+        },
+        {
+          rank: 2,
+          score: 150,
+          members: [
+            { userId: TEST_IDS.USER_ID_4 },
+            { eventPlaceholderParticipantId: TEST_IDS.EVENT_PLACEHOLDER_ID },
+          ],
+        },
+      ],
+    });
+
+    expect(result.error).toContain("must have exactly");
+  });
+
+  it("returns error when duplicate members across groups", async () => {
+    vi.mocked(dbEvents.getEventParticipant).mockResolvedValue(
+      mockOrganizerMember as never,
+    );
+    vi.mocked(dbEvents.getEventById).mockResolvedValue(
+      mockActiveEvent as never,
+    );
+    vi.mocked(dbEvents.getEventGameTypeById).mockResolvedValue(
+      mockGroupedFFAGameType as never,
+    );
+
+    const result = await recordEventFFAMatch(TEST_IDS.USER_ID, {
+      eventId: TEST_IDS.EVENT_ID,
+      gameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(Date.now() - 1000),
+      participants: [
+        {
+          rank: 1,
+          score: 200,
+          members: [
+            { userId: TEST_IDS.USER_ID },
+            { userId: TEST_IDS.USER_ID_2 },
+          ],
+        },
+        {
+          rank: 2,
+          score: 150,
+          members: [
+            { userId: TEST_IDS.USER_ID },
+            { userId: TEST_IDS.USER_ID_3 },
+          ],
+        },
+      ],
+    });
+
+    expect(result.error).toBe("A participant cannot appear in multiple groups");
+  });
+
+  it("returns error when mixing grouped and individual entries", async () => {
+    vi.mocked(dbEvents.getEventParticipant).mockResolvedValue(
+      mockOrganizerMember as never,
+    );
+    vi.mocked(dbEvents.getEventById).mockResolvedValue(
+      mockActiveEvent as never,
+    );
+    vi.mocked(dbEvents.getEventGameTypeById).mockResolvedValue(
+      mockGroupedFFAGameType as never,
+    );
+
+    const result = await recordEventFFAMatch(TEST_IDS.USER_ID, {
+      eventId: TEST_IDS.EVENT_ID,
+      gameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(Date.now() - 1000),
+      participants: [
+        {
+          rank: 1,
+          score: 200,
+          members: [
+            { userId: TEST_IDS.USER_ID },
+            { userId: TEST_IDS.USER_ID_2 },
+          ],
+        },
+        { userId: TEST_IDS.USER_ID_3, rank: 2, score: 150 },
+      ],
+    });
+
+    expect(result.error).toBe(
+      "This game type requires grouped participants - all entries must have members",
+    );
+  });
+
+  it("returns error when non-grouped entries used with grouped config", async () => {
+    vi.mocked(dbEvents.getEventParticipant).mockResolvedValue(
+      mockOrganizerMember as never,
+    );
+    vi.mocked(dbEvents.getEventById).mockResolvedValue(
+      mockActiveEvent as never,
+    );
+    vi.mocked(dbEvents.getEventGameTypeById).mockResolvedValue(
+      mockGroupedFFAGameType as never,
+    );
+
+    const result = await recordEventFFAMatch(TEST_IDS.USER_ID, {
+      eventId: TEST_IDS.EVENT_ID,
+      gameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(Date.now() - 1000),
+      participants: [
+        { userId: TEST_IDS.USER_ID, rank: 1, score: 200, points: 3 },
+        { userId: TEST_IDS.USER_ID_2, rank: 2, score: 150, points: 1 },
+      ],
+    });
+
+    expect(result.error).toBe(
+      "This game type requires grouped participants - all entries must have members",
+    );
+  });
+
+  it("allows non-organizer when involved as group member", async () => {
+    vi.mocked(dbEvents.getEventParticipant).mockResolvedValue(
+      mockParticipantMember as never,
+    );
+    vi.mocked(dbEvents.getEventById).mockResolvedValue(
+      mockActiveEvent as never,
+    );
+    vi.mocked(dbEvents.getEventGameTypeById).mockResolvedValue(
+      mockGroupedFFAGameType as never,
+    );
+    vi.mocked(dbEvents.getTeamForUser)
+      .mockResolvedValueOnce(mockTeam1 as never)
+      .mockResolvedValueOnce(mockTeam1 as never)
+      .mockResolvedValueOnce(mockTeam2 as never)
+      .mockResolvedValueOnce(mockTeam2 as never);
+    vi.mocked(dbEvents.createEventMatch).mockResolvedValue(mockMatch as never);
+    vi.mocked(dbEvents.createEventMatchParticipants).mockResolvedValue([
+      { id: "mp-1" },
+      { id: "mp-2" },
+    ] as never);
+    vi.mocked(dbEvents.createEventMatchParticipantMembers).mockResolvedValue(
+      undefined as never,
+    );
+    vi.mocked(dbEvents.createEventPointEntries).mockResolvedValue([
+      { id: "pe-1" },
+      { id: "pe-2" },
+    ] as never);
+
+    const result = await recordEventFFAMatch(TEST_IDS.USER_ID, {
+      eventId: TEST_IDS.EVENT_ID,
+      gameTypeId: TEST_IDS.EVENT_GAME_TYPE_ID,
+      playedAt: new Date(Date.now() - 1000),
+      participants: [
+        {
+          rank: 1,
+          score: 200,
+          members: [
+            { userId: TEST_IDS.USER_ID },
+            { userId: TEST_IDS.USER_ID_2 },
+          ],
+        },
+        {
+          rank: 2,
+          score: 150,
+          members: [
+            { userId: TEST_IDS.USER_ID_3 },
+            { userId: TEST_IDS.USER_ID_4 },
+          ],
+        },
+      ],
+    });
+
+    expect(result.data?.match.id).toBe(TEST_IDS.EVENT_MATCH_ID);
   });
 });

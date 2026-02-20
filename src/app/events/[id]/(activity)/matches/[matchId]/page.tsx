@@ -15,6 +15,7 @@ import {
 import { getScoreDescription } from "@/lib/shared/game-config-parser";
 import { getResultBadgeClasses } from "@/lib/shared/match-styles";
 import { EventAction, canPerformEventAction } from "@/lib/shared/permissions";
+import { computePointsByParticipant } from "@/lib/shared/points";
 import { cn } from "@/lib/shared/utils";
 import { getEventMatch } from "@/services/event-leaderboards";
 import { getEvent } from "@/services/events";
@@ -74,15 +75,10 @@ export default async function EventMatchDetailPage({ params }: PageProps) {
     ? getScoreDescription(match.gameType.config, match.gameType.category)
     : undefined;
 
-  const pointsByTeam = new Map<string, number>();
-  for (const pe of match.pointEntries) {
-    if (pe.eventTeamId) {
-      pointsByTeam.set(
-        pe.eventTeamId,
-        (pointsByTeam.get(pe.eventTeamId) ?? 0) + pe.points,
-      );
-    }
-  }
+  const pointsByParticipant = computePointsByParticipant(
+    match.pointEntries,
+    match.participants,
+  );
 
   return (
     <div className="space-y-6">
@@ -133,11 +129,7 @@ export default async function EventMatchDetailPage({ params }: PageProps) {
                     <ParticipantRow
                       key={p.id}
                       participant={p}
-                      points={
-                        p.eventTeamId
-                          ? (pointsByTeam.get(p.eventTeamId) ?? null)
-                          : null
-                      }
+                      points={pointsByParticipant.get(p.id) ?? null}
                     />
                   ))}
                 </div>
@@ -172,11 +164,7 @@ export default async function EventMatchDetailPage({ params }: PageProps) {
                       key={p.id}
                       participant={p}
                       align="right"
-                      points={
-                        p.eventTeamId
-                          ? (pointsByTeam.get(p.eventTeamId) ?? null)
-                          : null
-                      }
+                      points={pointsByParticipant.get(p.id) ?? null}
                     />
                   ))}
                 </div>
@@ -191,11 +179,7 @@ export default async function EventMatchDetailPage({ params }: PageProps) {
                     <ParticipantRow
                       key={p.id}
                       participant={p}
-                      points={
-                        p.eventTeamId
-                          ? (pointsByTeam.get(p.eventTeamId) ?? null)
-                          : null
-                      }
+                      points={pointsByParticipant.get(p.id) ?? null}
                     />
                   ))}
                 </div>
@@ -216,11 +200,7 @@ export default async function EventMatchDetailPage({ params }: PageProps) {
                     <ParticipantRow
                       key={p.id}
                       participant={p}
-                      points={
-                        p.eventTeamId
-                          ? (pointsByTeam.get(p.eventTeamId) ?? null)
-                          : null
-                      }
+                      points={pointsByParticipant.get(p.id) ?? null}
                     />
                   ))}
                 </div>
@@ -270,11 +250,7 @@ export default async function EventMatchDetailPage({ params }: PageProps) {
                     <ParticipantRow
                       participant={p}
                       showResult={false}
-                      points={
-                        p.eventTeamId
-                          ? (pointsByTeam.get(p.eventTeamId) ?? null)
-                          : null
-                      }
+                      points={pointsByParticipant.get(p.id) ?? null}
                     />
                     <div className="ml-auto flex items-center gap-2">
                       {p.score !== null && (
@@ -287,9 +263,9 @@ export default async function EventMatchDetailPage({ params }: PageProps) {
                           )}
                         </span>
                       )}
-                      {p.eventTeamId && pointsByTeam.has(p.eventTeamId) && (
+                      {pointsByParticipant.has(p.id) && (
                         <span className="text-sm text-muted-foreground">
-                          +{pointsByTeam.get(p.eventTeamId)} pts
+                          +{pointsByParticipant.get(p.id)} pts
                         </span>
                       )}
                     </div>
@@ -383,6 +359,15 @@ type ParticipantRowProps = {
       logo: string | null;
       color: string | null;
     } | null;
+    members?: {
+      user: {
+        id: string;
+        name: string;
+        username: string;
+        image: string | null;
+      } | null;
+      placeholderParticipant: { id: string; displayName: string } | null;
+    }[];
   };
   align?: "left" | "right";
   showResult?: boolean;
@@ -403,29 +388,51 @@ function ParticipantRow({
       )}
     >
       <div className="flex-1 min-w-0">
-        <ParticipantDisplay
-          participant={
-            {
-              user: participant.user,
-              team: participant.team,
-              placeholderMember: participant.placeholderParticipant,
-            } as ParticipantData
-          }
-          showAvatar
-          showUsername
-          teamName={
-            participant.user || participant.placeholderParticipant
-              ? participant.team?.name
-              : undefined
-          }
-          teamColor={
-            participant.user || participant.placeholderParticipant
-              ? participant.team?.color
-              : undefined
-          }
-          size="lg"
-          align={align}
-        />
+        {participant.members && participant.members.length > 0 ? (
+          <div className="space-y-1">
+            {participant.members.map((m, i) => (
+              <ParticipantDisplay
+                key={m.user?.id ?? m.placeholderParticipant?.id ?? i}
+                participant={
+                  {
+                    user: m.user,
+                    placeholderMember: m.placeholderParticipant,
+                  } as ParticipantData
+                }
+                showAvatar
+                showUsername
+                teamName={participant.team?.name}
+                teamColor={participant.team?.color}
+                size="lg"
+                align={align}
+              />
+            ))}
+          </div>
+        ) : (
+          <ParticipantDisplay
+            participant={
+              {
+                user: participant.user,
+                team: participant.team,
+                placeholderMember: participant.placeholderParticipant,
+              } as ParticipantData
+            }
+            showAvatar
+            showUsername
+            teamName={
+              participant.user || participant.placeholderParticipant
+                ? participant.team?.name
+                : undefined
+            }
+            teamColor={
+              participant.user || participant.placeholderParticipant
+                ? participant.team?.color
+                : undefined
+            }
+            size="lg"
+            align={align}
+          />
+        )}
       </div>
       {points != null && (
         <span className="text-sm text-muted-foreground shrink-0">

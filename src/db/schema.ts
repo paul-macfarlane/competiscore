@@ -1571,6 +1571,35 @@ export type NewEventMatchParticipant = InferInsertModel<
   typeof eventMatchParticipant
 >;
 
+export const eventMatchParticipantMember = pgTable(
+  "event_match_participant_member",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    eventMatchParticipantId: text("event_match_participant_id")
+      .notNull()
+      .references(() => eventMatchParticipant.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+    eventPlaceholderParticipantId: text(
+      "event_placeholder_participant_id",
+    ).references(() => eventPlaceholderParticipant.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("event_mpm_participant_idx").on(table.eventMatchParticipantId),
+    index("event_mpm_user_idx").on(table.userId),
+    index("event_mpm_placeholder_idx").on(table.eventPlaceholderParticipantId),
+  ],
+);
+
+export type EventMatchParticipantMember = InferSelectModel<
+  typeof eventMatchParticipantMember
+>;
+export type NewEventMatchParticipantMember = InferInsertModel<
+  typeof eventMatchParticipantMember
+>;
+
 export const highScoreSessionStatusEnum = pgEnum("high_score_session_status", [
   HighScoreSessionStatus.OPEN,
   HighScoreSessionStatus.CLOSED,
@@ -2118,7 +2147,7 @@ export const eventMatchRelations = relations(eventMatch, ({ one, many }) => ({
 
 export const eventMatchParticipantRelations = relations(
   eventMatchParticipant,
-  ({ one }) => ({
+  ({ one, many }) => ({
     match: one(eventMatch, {
       fields: [eventMatchParticipant.eventMatchId],
       references: [eventMatch.id],
@@ -2133,6 +2162,25 @@ export const eventMatchParticipantRelations = relations(
     }),
     placeholderParticipant: one(eventPlaceholderParticipant, {
       fields: [eventMatchParticipant.eventPlaceholderParticipantId],
+      references: [eventPlaceholderParticipant.id],
+    }),
+    members: many(eventMatchParticipantMember),
+  }),
+);
+
+export const eventMatchParticipantMemberRelations = relations(
+  eventMatchParticipantMember,
+  ({ one }) => ({
+    participant: one(eventMatchParticipant, {
+      fields: [eventMatchParticipantMember.eventMatchParticipantId],
+      references: [eventMatchParticipant.id],
+    }),
+    user: one(user, {
+      fields: [eventMatchParticipantMember.userId],
+      references: [user.id],
+    }),
+    placeholderParticipant: one(eventPlaceholderParticipant, {
+      fields: [eventMatchParticipantMember.eventPlaceholderParticipantId],
       references: [eventPlaceholderParticipant.id],
     }),
   }),
@@ -2384,6 +2432,9 @@ export const eventTeamMemberColumns = getTableColumns(eventTeamMember);
 export const eventMatchColumns = getTableColumns(eventMatch);
 export const eventMatchParticipantColumns = getTableColumns(
   eventMatchParticipant,
+);
+export const eventMatchParticipantMemberColumns = getTableColumns(
+  eventMatchParticipantMember,
 );
 export const eventHighScoreSessionColumns = getTableColumns(
   eventHighScoreSession,

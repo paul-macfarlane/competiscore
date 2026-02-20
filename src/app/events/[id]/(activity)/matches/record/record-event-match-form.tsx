@@ -32,10 +32,12 @@ import {
   ScoringType,
 } from "@/lib/shared/constants";
 import {
+  getFFAGroupSizeRange,
   getScoreDescription,
+  isFFAGrouping,
   parseGameConfig,
 } from "@/lib/shared/game-config-parser";
-import { H2HConfig } from "@/lib/shared/game-templates";
+import { FFAConfig, H2HConfig } from "@/lib/shared/game-templates";
 import { ParticipantOption } from "@/lib/shared/participant-options";
 import {
   type RecordEventFFAMatchInput,
@@ -151,13 +153,31 @@ export function RecordEventMatchForm({
                 hasScoring={!!hasScoring}
               />
             ) : (
-              <FFAMatchForm
-                eventId={eventId}
-                gameTypeId={selectedGameType.id}
-                participantOptions={activeOptions}
-                scoreLabel={scoreLabel}
-                hasScoring={!!hasScoring}
-              />
+              (() => {
+                const ffaConfig = parseGameConfig(
+                  selectedGameType.config,
+                  GameCategory.FREE_FOR_ALL,
+                ) as FFAConfig;
+                return isFFAGrouping(ffaConfig) ? (
+                  <GroupedFFAMatchForm
+                    key={`grouped-${selectedGameType.id}`}
+                    eventId={eventId}
+                    gameTypeId={selectedGameType.id}
+                    participantOptions={participantOptions}
+                    scoreLabel={scoreLabel}
+                    hasScoring={!!hasScoring}
+                    groupSizeRange={getFFAGroupSizeRange(ffaConfig)}
+                  />
+                ) : (
+                  <FFAMatchForm
+                    eventId={eventId}
+                    gameTypeId={selectedGameType.id}
+                    participantOptions={activeOptions}
+                    scoreLabel={scoreLabel}
+                    hasScoring={!!hasScoring}
+                  />
+                );
+              })()
             )}
           </>
         )}
@@ -837,6 +857,428 @@ function FFAMatchForm({
                   <FormField
                     control={form.control}
                     name={`participants.${index}.points`}
+                    render={({ field: pointsField }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">
+                          Points (optional)
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="any"
+                            min="0"
+                            placeholder="Points"
+                            value={pointsField.value ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              pointsField.onChange(
+                                value === "" ? undefined : parseFloat(value),
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          {form.formState.errors.participants?.message && (
+            <p className="text-destructive text-sm font-medium">
+              {form.formState.errors.participants.message}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            onClick={() => router.back()}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" className="flex-1" disabled={isPending}>
+            {isPending ? "Recording..." : "Record Match"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
+type MemberFormValue = {
+  userId?: string;
+  eventPlaceholderParticipantId?: string;
+};
+
+function memberToSelector(
+  m: MemberFormValue,
+): { id: string; type: MatchParticipantType } | undefined {
+  if (m.userId) return { id: m.userId, type: MatchParticipantType.USER };
+  if (m.eventPlaceholderParticipantId)
+    return {
+      id: m.eventPlaceholderParticipantId,
+      type: MatchParticipantType.PLACEHOLDER,
+    };
+  return undefined;
+}
+
+function selectorToMember(
+  val: { id: string; type: MatchParticipantType } | undefined,
+): MemberFormValue {
+  if (!val) return {};
+  if (val.type === MatchParticipantType.USER) return { userId: val.id };
+  return { eventPlaceholderParticipantId: val.id };
+}
+
+function GroupedFFAMatchForm({
+  eventId,
+  gameTypeId,
+  participantOptions,
+  scoreLabel,
+  hasScoring,
+  groupSizeRange,
+}: {
+  eventId: string;
+  gameTypeId: string;
+  participantOptions: ParticipantOption[];
+  scoreLabel: string;
+  hasScoring: boolean;
+  groupSizeRange: { min: number; max: number };
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const makeDefaultMembers = () =>
+    Array.from({ length: groupSizeRange.min }, () => ({
+      userId: undefined as string | undefined,
+      eventPlaceholderParticipantId: undefined as string | undefined,
+    }));
+
+  const form = useForm<FFAFormValues>({
+    resolver: zodResolver(recordEventFFAMatchSchema),
+    defaultValues: {
+      eventId,
+      gameTypeId,
+      playedAt: formatLocalDateTime(new Date()),
+      participants: [
+        {
+          rank: 1,
+          score: undefined,
+          points: undefined,
+          members: makeDefaultMembers(),
+        },
+        {
+          rank: 2,
+          score: undefined,
+          points: undefined,
+          members: makeDefaultMembers(),
+        },
+      ],
+    },
+    mode: "onChange",
+  });
+
+  const participantsArray = useFieldArray({
+    control: form.control,
+    name: "participants",
+  });
+
+  const watchedParticipants = form.watch("participants");
+
+  const getOptionsForMember = (
+    groupIndex: number,
+    memberIndex: number,
+  ): ParticipantOption[] => {
+    const group = watchedParticipants[groupIndex];
+    const members = group?.members ?? [];
+    const currentMember = members[memberIndex];
+    const currentSel = currentMember
+      ? memberToSelector(currentMember)
+      : undefined;
+
+    const otherKeys = new Set<string>();
+    for (let gi = 0; gi < watchedParticipants.length; gi++) {
+      for (
+        let mi = 0;
+        mi < (watchedParticipants[gi].members ?? []).length;
+        mi++
+      ) {
+        if (gi === groupIndex && mi === memberIndex) continue;
+        const m = watchedParticipants[gi].members![mi];
+        if (m.userId) otherKeys.add(`user:${m.userId}`);
+        if (m.eventPlaceholderParticipantId)
+          otherKeys.add(`placeholder:${m.eventPlaceholderParticipantId}`);
+      }
+    }
+
+    let opts = participantOptions.filter((o) => {
+      const key =
+        o.type === MatchParticipantType.USER
+          ? `user:${o.id}`
+          : `placeholder:${o.id}`;
+      return (
+        (currentSel && o.id === currentSel.id && o.type === currentSel.type) ||
+        !otherKeys.has(key)
+      );
+    });
+
+    if (memberIndex > 0) {
+      const firstMember = members[0];
+      const firstSel = firstMember ? memberToSelector(firstMember) : undefined;
+      if (firstSel) {
+        const firstOption = participantOptions.find(
+          (o) => o.id === firstSel.id && o.type === firstSel.type,
+        );
+        if (firstOption?.teamName) {
+          opts = opts.filter((o) => o.teamName === firstOption.teamName);
+        }
+      }
+    }
+
+    return opts;
+  };
+
+  const setMember = (
+    groupIndex: number,
+    memberIndex: number,
+    val: { id: string; type: MatchParticipantType } | undefined,
+  ) => {
+    const currentMembers = [
+      ...(watchedParticipants[groupIndex]?.members ?? []),
+    ];
+    currentMembers[memberIndex] = selectorToMember(val);
+    if (memberIndex === 0) {
+      for (let i = 1; i < currentMembers.length; i++) {
+        currentMembers[i] = {};
+      }
+    }
+    form.setValue(`participants.${groupIndex}.members`, currentMembers, {
+      shouldValidate: true,
+    });
+  };
+
+  const addMemberToGroup = (groupIndex: number) => {
+    const currentMembers = [
+      ...(watchedParticipants[groupIndex]?.members ?? []),
+    ];
+    currentMembers.push({});
+    form.setValue(`participants.${groupIndex}.members`, currentMembers);
+  };
+
+  const removeMemberFromGroup = (groupIndex: number, memberIndex: number) => {
+    const currentMembers = [
+      ...(watchedParticipants[groupIndex]?.members ?? []),
+    ];
+    currentMembers.splice(memberIndex, 1);
+    form.setValue(`participants.${groupIndex}.members`, currentMembers, {
+      shouldValidate: true,
+    });
+  };
+
+  const onSubmit = (values: FFAFormValues) => {
+    startTransition(async () => {
+      const result = await recordEventFFAMatchAction(values);
+      if (result.error) {
+        if (result.fieldErrors) {
+          Object.entries(result.fieldErrors).forEach(([field, message]) => {
+            form.setError(field as keyof RecordEventFFAMatchInput, {
+              message,
+            });
+          });
+        } else {
+          toast.error(result.error);
+        }
+      } else if (result.data) {
+        toast.success("Match recorded successfully!");
+        router.push(`/events/${eventId}/matches`);
+      }
+    });
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="playedAt"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Date & Time Played</FormLabel>
+              <FormControl>
+                <DateTimePicker
+                  date={field.value ? new Date(field.value) : undefined}
+                  onDateChange={(date) =>
+                    field.onChange(date ? formatLocalDateTime(date) : undefined)
+                  }
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <FormLabel className="text-base">Groups</FormLabel>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                participantsArray.append({
+                  rank: participantsArray.fields.length + 1,
+                  score: undefined,
+                  points: undefined,
+                  members: makeDefaultMembers(),
+                })
+              }
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Add Group
+            </Button>
+          </div>
+          {participantsArray.fields.map((field, groupIndex) => {
+            const members = watchedParticipants[groupIndex]?.members ?? [];
+            return (
+              <div key={field.id} className="space-y-3 rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">
+                    Group {groupIndex + 1}
+                  </span>
+                  {participantsArray.fields.length > 2 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 h-7 w-7"
+                      onClick={() => participantsArray.remove(groupIndex)}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {members.map((_, memberIndex) => {
+                    const sel = memberToSelector(members[memberIndex]);
+                    return (
+                      <div
+                        key={memberIndex}
+                        className="flex items-center gap-2"
+                      >
+                        <div className="flex-1">
+                          <ParticipantSelector
+                            options={getOptionsForMember(
+                              groupIndex,
+                              memberIndex,
+                            )}
+                            value={sel}
+                            onChange={(val) =>
+                              setMember(groupIndex, memberIndex, val)
+                            }
+                            placeholder={`Member ${memberIndex + 1}`}
+                          />
+                        </div>
+                        {members.length > groupSizeRange.min && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 h-8 w-8"
+                            onClick={() =>
+                              removeMemberFromGroup(groupIndex, memberIndex)
+                            }
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {members.length < groupSizeRange.max && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => addMemberToGroup(groupIndex)}
+                    >
+                      <Plus className="mr-1 h-3 w-3" />
+                      Add Member
+                    </Button>
+                  )}
+                </div>
+
+                {!!form.formState.errors.participants?.[groupIndex] && (
+                  <p className="text-destructive text-sm font-medium">
+                    Please select all group members
+                  </p>
+                )}
+
+                <div
+                  className={`grid gap-2 ${hasScoring ? "grid-cols-3" : "grid-cols-2"}`}
+                >
+                  <FormField
+                    control={form.control}
+                    name={`participants.${groupIndex}.rank`}
+                    render={({ field: rankField }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Rank</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="1"
+                            min="1"
+                            placeholder="Rank"
+                            {...rankField}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              rankField.onChange(
+                                value === "" ? "" : parseInt(value),
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {hasScoring && (
+                    <FormField
+                      control={form.control}
+                      name={`participants.${groupIndex}.score`}
+                      render={({ field: scoreField }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">
+                            {scoreLabel}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="any"
+                              placeholder={scoreLabel}
+                              value={scoreField.value ?? ""}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                scoreField.onChange(
+                                  value === "" ? undefined : parseFloat(value),
+                                );
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                  <FormField
+                    control={form.control}
+                    name={`participants.${groupIndex}.points`}
                     render={({ field: pointsField }) => (
                       <FormItem>
                         <FormLabel className="text-xs">

@@ -28,6 +28,7 @@ vi.mock("@/db/events", () => ({
   reassignEventPlaceholderRecordsToTeam: vi.fn(),
   deleteEventTeamMembershipsForPlaceholder: vi.fn(),
   migrateEventMatchParticipantsToUser: vi.fn(),
+  migrateEventMatchParticipantMembersToUser: vi.fn(),
   migrateEventHighScoreEntriesToUser: vi.fn(),
   migrateEventHighScoreEntryMembersToUser: vi.fn(),
   migrateEventTeamMembersToUser: vi.fn(),

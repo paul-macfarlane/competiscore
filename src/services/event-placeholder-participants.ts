@@ -17,6 +17,7 @@ import {
   getTeamForUser,
   migrateEventHighScoreEntriesToUser,
   migrateEventHighScoreEntryMembersToUser,
+  migrateEventMatchParticipantMembersToUser,
   migrateEventMatchParticipantsToUser,
   migrateEventPointEntryParticipantsToUser,
   migrateEventTeamMembersToUser,
@@ -393,6 +394,11 @@ export async function linkEventPlaceholderToUser(
 
     // Migrate userId on all records
     await migrateEventMatchParticipantsToUser(placeholderId, targetUserId, tx);
+    await migrateEventMatchParticipantMembersToUser(
+      placeholderId,
+      targetUserId,
+      tx,
+    );
     await migrateEventHighScoreEntriesToUser(placeholderId, targetUserId, tx);
     await migrateEventHighScoreEntryMembersToUser(
       placeholderId,

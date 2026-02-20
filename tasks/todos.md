@@ -10,6 +10,10 @@ List of miscellaneous TODOs for the project.
 - DEFER: Investigate ways to clean up/condense/remove the "Teams" section in leagues.
 - DEFER: Investigate ways to clean up/condense/remove the "Reporting" section in leagues.
 - DEFER: Events server, events db, events validators, etc, should be broken up and not just in 1 file. Events service alreadt does this, but the other layers, like validators and db, need to be updated.
+- NEW: A user guide on the app itself inside of the app.
+- NEW: The ability to add "notes" to matches, high scores, and tournaments. Could be a nice touch
+- NEW: Bug - The Points over time should be based on the creation/occurence of the event leading to points, not when the thing was last updated.
+- NEW: Bug - The points over time should just be using who numbers for points on the vertical axis.
 
 ### Events
 
@@ -18,7 +22,6 @@ List of miscellaneous TODOs for the project.
 
 ### Tournaments
 
-- DEFER: In general, we could use a better UI for the bracket view. Its satisfactory for now, but could be improved. Need to think about this more.
 - DEFER: We can remove tournament icons entirely, they don't add much to the app in my opinion. Let's clea up any icon related code for tournaments. This applies to both events and leagues.
 - DEFER: Allow for an optional 3rd place match/set of matches. Set up at tournament configuration. This is actually not needed in the short term so we can defer this. Rounds with multiple numbers of games is needed short term.
 

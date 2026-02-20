@@ -24,6 +24,8 @@ export type FFAConfig = {
   participantType: ParticipantType;
   minPlayers: number;
   maxPlayers: number;
+  minGroupSize?: number;
+  maxGroupSize?: number;
   rules?: string;
 };
 

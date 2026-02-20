@@ -32,6 +32,8 @@ export const ffaConfigSchema = z.object({
   participantType: z.enum([ParticipantType.INDIVIDUAL, ParticipantType.TEAM]),
   minPlayers: z.number().int().min(2).max(50),
   maxPlayers: z.number().int().min(2).max(50),
+  minGroupSize: z.number().int().min(1).max(10).optional(),
+  maxGroupSize: z.number().int().min(1).max(10).optional(),
   rules: rulesSchema,
 });
 

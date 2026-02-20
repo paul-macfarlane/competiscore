@@ -147,7 +147,10 @@ Three or more competitors (individuals or teams) in a single match. Results in a
 - Scoring type: Ranked finish only, or Score-based ranking
 - Score order: Highest wins or Lowest wins
 - Min/Max players: Configurable range
+- Min/Max group size (Individual participant type only): Configurable range for grouped entries (e.g., 2 for doubles). Defaults to 1 (no grouping). See Group/Pair Support below.
 - Rules: Optional markdown-formatted rules text
+
+**Group/Pair Support (Events only):** Individual FFA game types in events can set a `minGroupSize`/`maxGroupSize` greater than 1. When group size > 1, participants must enter as groups (e.g., doubles bowling where 2 teammates share one rank/score). All members in a group must be on the same event team. Groups appear as a single unit on match cards (e.g., "Alice & Bob") with their team badge displayed. When placement points are awarded, each member of the group receives individual attribution in the point entry. _Future: Group/pair support for league FFA game types._
 
 **ELO Calculation:** Yes, using multiplayer ELO algorithms.
 
@@ -437,7 +440,7 @@ The event creator is automatically assigned the Organizer role.
 Events define their own game types independently from leagues. Supports the same three categories:
 
 - **Head-to-Head (H2H):** Same configuration as league H2H game types
-- **Free-for-All (FFA):** Same configuration as league FFA game types
+- **Free-for-All (FFA):** Same configuration as league FFA game types, plus group/pair support (`minGroupSize`/`maxGroupSize`) for individual participant types
 - **High Score:** Same configuration as league High Score game types
 
 Game types can only be added during the draft phase. They can be archived but not deleted.
@@ -491,7 +494,7 @@ Team-based scoring only (for now):
 - Points are removed when matches/entries/awards are deleted
 - Point entries store individual participant info (userId or placeholder participant) where applicable, enabling individual attribution in analytics:
   - **H2H matches:** Individual stored when exactly one participant per team on a side; null for multi-participant teams
-  - **FFA matches:** Individual stored per participant (entries are per-participant)
+  - **FFA matches:** Individual stored per participant (entries are per-participant); for grouped entries, all members are stored
   - **High scores:** Individual who achieved the best placement for their team is stored; for group entries, all members are stored
   - **Tournaments:** Individual tournament participant is stored
   - **Discretionary:** Team-level only (recipients schema only has team IDs)
@@ -847,6 +850,7 @@ When `/dashboard` returns, it should show cross-league personal data:
 18. ~~Event metrics dashboard — standings bar chart, points over time (clickable), team share pie chart, top contributors/category breakdown pie chart, scoring history log with detail links~~
 19. ~~Individual participant tracking on point entries for analytics attribution~~
 20. ~~Group/pair score submissions for event high score game types (`groupSize` > 1) — paired leaderboard display ("Name1 & Name2"), same-team enforcement, per-member point attribution~~
+21. ~~Group/pair entries for event FFA game types (`minGroupSize`/`maxGroupSize`) — grouped match recording, same-team enforcement, per-member point attribution, team badge display on match cards~~
 
 ### Post-MVP Features
 
@@ -874,6 +878,7 @@ When `/dashboard` returns, it should show cross-league personal data:
 - Individual scoring mode for events (no teams required)
 - Event templates for common formats
 - Group/pair score submissions for league high score game types (currently events-only)
+- Group/pair entries for league FFA game types (currently events-only)
 
 ---
 

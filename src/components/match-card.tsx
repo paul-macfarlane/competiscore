@@ -2,6 +2,7 @@ import {
   ParticipantData,
   ParticipantDisplay,
 } from "@/components/participant-display";
+import { TeamColorBadge } from "@/components/team-color-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,16 @@ import { ChevronRight, Trophy } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
+type MatchParticipantMember = {
+  user: {
+    id: string;
+    name: string;
+    username: string;
+    image: string | null;
+  } | null;
+  placeholderParticipant: { id: string; displayName: string } | null;
+};
+
 type MatchParticipant = {
   id: string;
   side: number | null;
@@ -35,6 +46,7 @@ type MatchParticipant = {
   teamName?: string;
   teamColor?: string | null;
   points?: number | null;
+  members?: MatchParticipantMember[];
 };
 
 type MatchCardTournament = {
@@ -348,14 +360,35 @@ export function MatchCard({
                     {p.rank || index + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <ParticipantDisplay
-                      participant={p as ParticipantData}
-                      showAvatar
-                      showUsername
-                      teamName={p.teamName}
-                      teamColor={p.teamColor}
-                      size="sm"
-                    />
+                    {p.members && p.members.length > 0 ? (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="text-sm font-medium">
+                          {p.members
+                            .map(
+                              (m) =>
+                                m.user?.name ??
+                                m.placeholderParticipant?.displayName ??
+                                "Unknown",
+                            )
+                            .join(" & ")}
+                        </span>
+                        {p.teamName && (
+                          <TeamColorBadge
+                            name={p.teamName}
+                            color={p.teamColor ?? null}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <ParticipantDisplay
+                        participant={p as ParticipantData}
+                        showAvatar
+                        showUsername
+                        teamName={p.teamName}
+                        teamColor={p.teamColor}
+                        size="sm"
+                      />
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {p.score !== null && (

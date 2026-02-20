@@ -8,6 +8,7 @@ import { auth } from "@/lib/server/auth";
 import { EventStatus, GameCategory } from "@/lib/shared/constants";
 import { getScoreDescription } from "@/lib/shared/game-config-parser";
 import { EventAction, canPerformEventAction } from "@/lib/shared/permissions";
+import { computePointsByParticipant } from "@/lib/shared/points";
 import { getEventGameTypes } from "@/services/event-game-types";
 import { getEventMatches } from "@/services/event-leaderboards";
 import { getEvent } from "@/services/events";
@@ -191,15 +192,10 @@ async function MatchesContent({
       ) : (
         <div className="flex flex-col gap-4">
           {matches.map((match) => {
-            const pointsByTeam = new Map<string, number>();
-            for (const pe of match.pointEntries) {
-              if (pe.eventTeamId) {
-                pointsByTeam.set(
-                  pe.eventTeamId,
-                  (pointsByTeam.get(pe.eventTeamId) ?? 0) + pe.points,
-                );
-              }
-            }
+            const pointsByParticipant = computePointsByParticipant(
+              match.pointEntries,
+              match.participants,
+            );
 
             return (
               <MatchCard
@@ -238,16 +234,15 @@ async function MatchesContent({
                   team: p.team,
                   placeholderMember: p.placeholderParticipant,
                   teamName:
-                    p.user?.id || p.placeholderParticipant?.id
+                    p.user?.id || p.placeholderParticipant?.id || p.members
                       ? p.team?.name
                       : undefined,
                   teamColor:
-                    p.user?.id || p.placeholderParticipant?.id
+                    p.user?.id || p.placeholderParticipant?.id || p.members
                       ? p.team?.color
                       : undefined,
-                  points: p.eventTeamId
-                    ? (pointsByTeam.get(p.eventTeamId) ?? null)
-                    : null,
+                  points: pointsByParticipant.get(p.id) ?? null,
+                  members: p.members,
                 }))}
               />
             );

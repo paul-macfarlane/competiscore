@@ -1,5 +1,6 @@
 import {
   createEventMatch as dbCreateEventMatch,
+  createEventMatchParticipantMembers as dbCreateEventMatchParticipantMembers,
   createEventMatchParticipants as dbCreateEventMatchParticipants,
   createEventPointEntries as dbCreateEventPointEntries,
   createEventPointEntryParticipants as dbCreateEventPointEntryParticipants,
@@ -23,8 +24,12 @@ import {
   ParticipantType,
   ScoreOrder,
 } from "@/lib/shared/constants";
-import { parseGameConfig } from "@/lib/shared/game-config-parser";
-import { H2HConfig } from "@/lib/shared/game-templates";
+import {
+  getFFAGroupSizeRange,
+  isFFAGrouping,
+  parseGameConfig,
+} from "@/lib/shared/game-config-parser";
+import { FFAConfig, H2HConfig } from "@/lib/shared/game-templates";
 import { EventAction, canPerformEventAction } from "@/lib/shared/permissions";
 import {
   deleteEventMatchSchema,
@@ -38,13 +43,27 @@ type ParsedParticipant = {
   userId?: string | null;
   eventPlaceholderParticipantId?: string | null;
   eventTeamId?: string | null;
+  members?: Array<{
+    userId?: string;
+    eventPlaceholderParticipantId?: string;
+  }>;
 };
 
 function isUserInvolvedInEventMatch(
   userId: string,
-  participants: ParsedParticipant[],
+  participants: Array<{
+    userId?: string | null;
+    members?: Array<{
+      userId?: string | null;
+      user?: { id: string } | null;
+    }>;
+  }>,
 ): boolean {
-  return participants.some((p) => p.userId === userId);
+  return participants.some(
+    (p) =>
+      p.userId === userId ||
+      p.members?.some((m) => m.userId === userId || m.user?.id === userId),
+  );
 }
 
 async function resolveParticipantTeam(
@@ -438,10 +457,13 @@ export async function recordEventFFAMatch(
     };
   }
 
-  const ffaConfig = parseGameConfig(gameType.config, gameType.category);
-  const isTeamFFA =
-    "participantType" in ffaConfig &&
-    ffaConfig.participantType === ParticipantType.TEAM;
+  const ffaConfig = parseGameConfig(
+    gameType.config,
+    gameType.category,
+  ) as FFAConfig;
+  const isTeamFFA = ffaConfig.participantType === ParticipantType.TEAM;
+  const isGrouped = isFFAGrouping(ffaConfig);
+  const groupSizeRange = getFFAGroupSizeRange(ffaConfig);
 
   // For team-participant games, validate all participants use eventTeamId
   if (isTeamFFA) {
@@ -450,6 +472,58 @@ export async function recordEventFFAMatch(
         error: "All participants must be teams for this game type",
       };
     }
+  }
+
+  // Validate grouping mode consistency
+  const hasGrouped = inputParticipants.some(
+    (p) => p.members && p.members.length > 0,
+  );
+  const hasIndividual = inputParticipants.some(
+    (p) => !p.members || p.members.length === 0,
+  );
+
+  if (isGrouped) {
+    if (hasIndividual) {
+      return {
+        error:
+          "This game type requires grouped participants - all entries must have members",
+      };
+    }
+
+    // Validate group sizes
+    for (const p of inputParticipants) {
+      const memberCount = p.members!.length;
+      if (
+        memberCount < groupSizeRange.min ||
+        memberCount > groupSizeRange.max
+      ) {
+        return {
+          error:
+            groupSizeRange.min === groupSizeRange.max
+              ? `Each group must have exactly ${groupSizeRange.min} members`
+              : `Each group must have between ${groupSizeRange.min} and ${groupSizeRange.max} members`,
+        };
+      }
+    }
+
+    // Check no duplicate members across all groups
+    const allMemberKeys = new Set<string>();
+    for (const p of inputParticipants) {
+      for (const m of p.members!) {
+        const key = m.userId ?? m.eventPlaceholderParticipantId!;
+        if (allMemberKeys.has(key)) {
+          return {
+            error: "A participant cannot appear in multiple groups",
+          };
+        }
+        allMemberKeys.add(key);
+      }
+    }
+  } else if (hasGrouped) {
+    return {
+      error:
+        "This game type does not support grouped participants - do not provide members",
+    };
   }
 
   if (
@@ -466,7 +540,122 @@ export async function recordEventFFAMatch(
     }
   }
 
-  // Resolve all participants to their teams
+  // Resolve participants to their teams
+  if (isGrouped) {
+    // For grouped mode, resolve team from the first member of each group
+    type ResolvedGroupedParticipant = (typeof inputParticipants)[number] & {
+      team: NonNullable<Awaited<ReturnType<typeof resolveParticipantTeam>>>;
+    };
+    const resolvedGrouped: ResolvedGroupedParticipant[] = [];
+
+    for (const p of inputParticipants) {
+      const firstMember = p.members![0];
+      const firstMemberTeam = await resolveParticipantTeam(eventId, {
+        userId: firstMember.userId ?? null,
+        eventPlaceholderParticipantId:
+          firstMember.eventPlaceholderParticipantId ?? null,
+      });
+      if (!firstMemberTeam) {
+        return { error: "Group member is not on a team" };
+      }
+
+      // Verify all members are on the same team
+      for (let i = 1; i < p.members!.length; i++) {
+        const member = p.members![i];
+        const memberTeam = await resolveParticipantTeam(eventId, {
+          userId: member.userId ?? null,
+          eventPlaceholderParticipantId:
+            member.eventPlaceholderParticipantId ?? null,
+        });
+        if (!memberTeam || memberTeam.id !== firstMemberTeam.id) {
+          return {
+            error: "All members in a group must be on the same team",
+          };
+        }
+      }
+
+      resolvedGrouped.push({ ...p, team: firstMemberTeam });
+    }
+
+    return withTransaction(async (tx) => {
+      const match = await dbCreateEventMatch(
+        {
+          eventId,
+          eventGameTypeId: gameTypeId,
+          playedAt,
+          recorderId: userId,
+        },
+        tx,
+      );
+
+      // Create match participants (grouped: no userId/placeholder, team from members)
+      const participantData = resolvedGrouped.map((p) => ({
+        eventMatchId: match.id,
+        eventTeamId: p.team.id,
+        userId: null,
+        eventPlaceholderParticipantId: null,
+        side: null,
+        score: p.score ?? null,
+        rank: p.rank ?? null,
+        result: null,
+      }));
+
+      const createdParticipants = await dbCreateEventMatchParticipants(
+        participantData,
+        tx,
+      );
+
+      // Create member rows for each participant
+      const memberRows = createdParticipants.flatMap((cp, i) =>
+        resolvedGrouped[i].members!.map((m) => ({
+          eventMatchParticipantId: cp.id,
+          userId: m.userId ?? null,
+          eventPlaceholderParticipantId:
+            m.eventPlaceholderParticipantId ?? null,
+        })),
+      );
+      await dbCreateEventMatchParticipantMembers(memberRows, tx);
+
+      // Create point entries - one per group, with all members as participants
+      const hasPoints = resolvedGrouped.some((p) => p.points !== undefined);
+      if (hasPoints) {
+        const entriesWithMembers = resolvedGrouped.map((p) => ({
+          entry: {
+            eventId,
+            category:
+              EventPointCategory.FFA_MATCH as typeof EventPointCategory.FFA_MATCH,
+            outcome:
+              EventPointOutcome.PLACEMENT as typeof EventPointOutcome.PLACEMENT,
+            eventTeamId: p.team.id,
+            eventMatchId: match.id,
+            eventHighScoreSessionId: null,
+            eventTournamentId: null,
+            points: p.points ?? 0,
+          },
+          members: p.members!,
+        }));
+
+        const created = await dbCreateEventPointEntries(
+          entriesWithMembers.map((e) => e.entry),
+          tx,
+        );
+
+        const participantRows = created.flatMap((entry, i) =>
+          entriesWithMembers[i].members.map((m) => ({
+            eventPointEntryId: entry.id,
+            userId: m.userId ?? null,
+            eventPlaceholderParticipantId:
+              m.eventPlaceholderParticipantId ?? null,
+          })),
+        );
+        await dbCreateEventPointEntryParticipants(participantRows, tx);
+      }
+
+      return { data: { match, eventId } };
+    });
+  }
+
+  // Non-grouped (existing) flow
   const resolved = await Promise.all(
     inputParticipants.map(async (p) => {
       const team = await resolveParticipantTeam(eventId, p);

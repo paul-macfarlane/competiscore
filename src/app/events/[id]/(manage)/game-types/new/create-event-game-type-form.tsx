@@ -127,6 +127,8 @@ export function CreateEventGameTypeForm({
           | typeof ParticipantType.TEAM,
         minPlayers: config.minPlayers,
         maxPlayers: config.maxPlayers,
+        minGroupSize: config.minGroupSize,
+        maxGroupSize: config.maxGroupSize,
         rules: config.rules,
       });
     } else if (template.category === GameCategory.HIGH_SCORE) {
@@ -765,6 +767,71 @@ export function CreateEventGameTypeForm({
                 </FormItem>
               )}
             />
+
+            {form.watch("config.participantType") ===
+              ParticipantType.INDIVIDUAL && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="config.minGroupSize"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Min Group Size</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={10}
+                            step={1}
+                            placeholder="1"
+                            value={(field.value as number | undefined) ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              field.onChange(
+                                val === "" ? undefined : parseInt(val, 10),
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="config.maxGroupSize"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max Group Size</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={10}
+                            step={1}
+                            placeholder="1"
+                            value={(field.value as number | undefined) ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              field.onChange(
+                                val === "" ? undefined : parseInt(val, 10),
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Set above 1 to allow grouped entries (e.g., 2 for doubles).
+                  Leave empty for individual entries.
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

@@ -59,6 +59,8 @@ export function parseFFAConfig(configString: string): FFAConfig {
       participantType: "individual" as const,
       minPlayers: 2,
       maxPlayers: 10,
+      minGroupSize: 1,
+      maxGroupSize: 1,
     };
   } catch (error) {
     console.error("Failed to JSON.parse FFA config:", error);
@@ -68,6 +70,8 @@ export function parseFFAConfig(configString: string): FFAConfig {
       participantType: "individual" as const,
       minPlayers: 2,
       maxPlayers: 10,
+      minGroupSize: 1,
+      maxGroupSize: 1,
     };
   }
 }
@@ -121,6 +125,23 @@ export function isPartnershipGameType(config: H2HConfig): boolean {
 
 export function getPartnershipSize(config: H2HConfig): number {
   return config.maxPlayersPerSide;
+}
+
+export function isFFAGrouping(config: FFAConfig): boolean {
+  return (
+    config.participantType === ParticipantType.INDIVIDUAL &&
+    (config.maxGroupSize ?? 1) > 1
+  );
+}
+
+export function getFFAGroupSizeRange(config: FFAConfig): {
+  min: number;
+  max: number;
+} {
+  return {
+    min: config.minGroupSize ?? 1,
+    max: config.maxGroupSize ?? 1,
+  };
 }
 
 export function getScoreDescription(

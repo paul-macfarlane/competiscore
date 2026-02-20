@@ -424,6 +424,21 @@ export type RecordEventH2HMatchInput = z.infer<
 >;
 
 // Event match recording - FFA
+const ffaGroupMemberSchema = z
+  .object({
+    userId: z.string().optional(),
+    eventPlaceholderParticipantId: uuidSchema.optional(),
+  })
+  .refine(
+    (data) =>
+      (data.userId ? 1 : 0) + (data.eventPlaceholderParticipantId ? 1 : 0) ===
+      1,
+    {
+      message:
+        "Exactly one of userId or eventPlaceholderParticipantId must be provided for each member",
+    },
+  );
+
 export const ffaEventParticipantSchema = z
   .object({
     userId: z.string().optional(),
@@ -435,16 +450,27 @@ export const ffaEventParticipantSchema = z
       .number("A number is required")
       .min(0, "Points cannot be negative")
       .optional(),
+    members: z.array(ffaGroupMemberSchema).min(2).optional(),
   })
   .refine(
-    (data) =>
-      (data.userId ? 1 : 0) +
-        (data.eventPlaceholderParticipantId ? 1 : 0) +
-        (data.eventTeamId ? 1 : 0) ===
-      1,
+    (data) => {
+      if (data.members && data.members.length > 0) {
+        return (
+          !data.userId &&
+          !data.eventPlaceholderParticipantId &&
+          !data.eventTeamId
+        );
+      }
+      return (
+        (data.userId ? 1 : 0) +
+          (data.eventPlaceholderParticipantId ? 1 : 0) +
+          (data.eventTeamId ? 1 : 0) ===
+        1
+      );
+    },
     {
       message:
-        "Exactly one of userId, eventPlaceholderParticipantId, or eventTeamId must be provided",
+        "Provide either members for a group entry, or exactly one of userId, eventPlaceholderParticipantId, or eventTeamId",
     },
   );
 

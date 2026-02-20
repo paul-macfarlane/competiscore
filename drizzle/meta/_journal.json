@@ -281,6 +281,13 @@
       "when": 1771438790272,
       "tag": "0039_mature_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1771617181475,
+      "tag": "0040_tired_mentor",
+      "breakpoints": true
     }
   ]
 }

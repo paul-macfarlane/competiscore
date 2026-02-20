@@ -11,6 +11,7 @@ import {
   EventHighScoreSession,
   EventMatch,
   EventMatchParticipant,
+  EventMatchParticipantMember,
   EventParticipant,
   EventPlaceholderParticipant,
   EventPointEntry,
@@ -24,6 +25,7 @@ import {
   NewEventHighScoreSession,
   NewEventMatch,
   NewEventMatchParticipant,
+  NewEventMatchParticipantMember,
   NewEventParticipant,
   NewEventPlaceholderParticipant,
   NewEventPointEntry,
@@ -44,6 +46,8 @@ import {
   eventMatchColumns,
   eventMatchParticipant,
   eventMatchParticipantColumns,
+  eventMatchParticipantMember,
+  eventMatchParticipantMemberColumns,
   eventParticipant,
   eventParticipantColumns,
   eventPlaceholderParticipant,
@@ -93,6 +97,17 @@ export type EventTeamMemberForParticipant = {
   > | null;
 };
 
+export type MatchParticipantMemberDetail = Pick<
+  EventMatchParticipantMember,
+  "id"
+> & {
+  user: Pick<User, "id" | "name" | "username" | "image"> | null;
+  placeholderParticipant: Pick<
+    EventPlaceholderParticipant,
+    "id" | "displayName"
+  > | null;
+};
+
 export type EventMatchParticipantWithDetails = EventMatchParticipant & {
   team: {
     id: string;
@@ -105,6 +120,7 @@ export type EventMatchParticipantWithDetails = EventMatchParticipant & {
     EventPlaceholderParticipant,
     "id" | "displayName"
   > | null;
+  members?: MatchParticipantMemberDetail[];
 };
 
 export type EventMatchWithParticipants = EventMatch & {
@@ -118,7 +134,7 @@ export type EventMatchWithParticipants = EventMatch & {
 };
 
 export type EventMatchWithParticipantsAndPoints = EventMatchWithParticipants & {
-  pointEntries: EventPointEntry[];
+  pointEntries: PointEntryWithParticipantLinks[];
 };
 
 export type HighScoreEntryMemberDetail = Pick<
@@ -959,6 +975,65 @@ export async function createEventMatchParticipants(
   return await dbOrTx.insert(eventMatchParticipant).values(data).returning();
 }
 
+export async function createEventMatchParticipantMembers(
+  data: Omit<NewEventMatchParticipantMember, "id" | "createdAt">[],
+  dbOrTx: DBOrTx = db,
+): Promise<EventMatchParticipantMember[]> {
+  if (data.length === 0) return [];
+  return dbOrTx.insert(eventMatchParticipantMember).values(data).returning();
+}
+
+export async function getMatchParticipantMembersByParticipantIds(
+  participantIds: string[],
+  dbOrTx: DBOrTx = db,
+): Promise<Map<string, MatchParticipantMemberDetail[]>> {
+  if (participantIds.length === 0) return new Map();
+
+  const rows = await dbOrTx
+    .select({
+      ...eventMatchParticipantMemberColumns,
+      memberUser: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        image: user.image,
+      },
+      memberPlaceholder: {
+        id: eventPlaceholderParticipant.id,
+        displayName: eventPlaceholderParticipant.displayName,
+      },
+    })
+    .from(eventMatchParticipantMember)
+    .leftJoin(user, eq(eventMatchParticipantMember.userId, user.id))
+    .leftJoin(
+      eventPlaceholderParticipant,
+      eq(
+        eventMatchParticipantMember.eventPlaceholderParticipantId,
+        eventPlaceholderParticipant.id,
+      ),
+    )
+    .where(
+      inArray(
+        eventMatchParticipantMember.eventMatchParticipantId,
+        participantIds,
+      ),
+    );
+
+  const map = new Map<string, MatchParticipantMemberDetail[]>();
+  for (const row of rows) {
+    const members = map.get(row.eventMatchParticipantId) ?? [];
+    members.push({
+      id: row.id,
+      user: row.memberUser?.id ? row.memberUser : null,
+      placeholderParticipant: row.memberPlaceholder?.id
+        ? row.memberPlaceholder
+        : null,
+    });
+    map.set(row.eventMatchParticipantId, members);
+  }
+  return map;
+}
+
 export async function getEventMatchById(
   id: string,
   dbOrTx: DBOrTx = db,
@@ -1071,7 +1146,22 @@ async function getEventMatchParticipants(
     .where(eq(eventMatchParticipant.eventMatchId, matchId))
     .orderBy(eventMatchParticipant.side, eventMatchParticipant.rank);
 
-  return result;
+  // Check for grouped participants (those with no userId and no placeholderParticipantId, but have a team)
+  const groupedIds = result
+    .filter(
+      (p) => !p.userId && !p.eventPlaceholderParticipantId && p.eventTeamId,
+    )
+    .map((p) => p.id);
+
+  if (groupedIds.length === 0) return result;
+
+  const membersByParticipantId =
+    await getMatchParticipantMembersByParticipantIds(groupedIds, dbOrTx);
+
+  return result.map((p) => ({
+    ...p,
+    members: membersByParticipantId.get(p.id),
+  }));
 }
 
 export async function getEventMatchWithParticipants(
@@ -1450,25 +1540,85 @@ export async function getEventPointEntries(
     .orderBy(desc(eventPointEntry.createdAt));
 }
 
+export type PointEntryParticipantLink = {
+  eventPointEntryId: string;
+  userId: string | null;
+  eventPlaceholderParticipantId: string | null;
+};
+
+export type PointEntryWithParticipantLinks = EventPointEntry & {
+  entryParticipants: PointEntryParticipantLink[];
+};
+
 export async function getPointEntriesForMatches(
   matchIds: string[],
   dbOrTx: DBOrTx = db,
-): Promise<EventPointEntry[]> {
+): Promise<PointEntryWithParticipantLinks[]> {
   if (matchIds.length === 0) return [];
-  return await dbOrTx
+  const entries = await dbOrTx
     .select()
     .from(eventPointEntry)
     .where(inArray(eventPointEntry.eventMatchId, matchIds));
+
+  if (entries.length === 0) return [];
+
+  const entryIds = entries.map((e) => e.id);
+  const participants = await dbOrTx
+    .select({
+      eventPointEntryId: eventPointEntryParticipant.eventPointEntryId,
+      userId: eventPointEntryParticipant.userId,
+      eventPlaceholderParticipantId:
+        eventPointEntryParticipant.eventPlaceholderParticipantId,
+    })
+    .from(eventPointEntryParticipant)
+    .where(inArray(eventPointEntryParticipant.eventPointEntryId, entryIds));
+
+  const participantsByEntry = new Map<string, PointEntryParticipantLink[]>();
+  for (const p of participants) {
+    const list = participantsByEntry.get(p.eventPointEntryId) ?? [];
+    list.push(p);
+    participantsByEntry.set(p.eventPointEntryId, list);
+  }
+
+  return entries.map((e) => ({
+    ...e,
+    entryParticipants: participantsByEntry.get(e.id) ?? [],
+  }));
 }
 
 export async function getPointEntriesForMatch(
   matchId: string,
   dbOrTx: DBOrTx = db,
-): Promise<EventPointEntry[]> {
-  return await dbOrTx
+): Promise<PointEntryWithParticipantLinks[]> {
+  const entries = await dbOrTx
     .select()
     .from(eventPointEntry)
     .where(eq(eventPointEntry.eventMatchId, matchId));
+
+  if (entries.length === 0) return [];
+
+  const entryIds = entries.map((e) => e.id);
+  const participants = await dbOrTx
+    .select({
+      eventPointEntryId: eventPointEntryParticipant.eventPointEntryId,
+      userId: eventPointEntryParticipant.userId,
+      eventPlaceholderParticipantId:
+        eventPointEntryParticipant.eventPlaceholderParticipantId,
+    })
+    .from(eventPointEntryParticipant)
+    .where(inArray(eventPointEntryParticipant.eventPointEntryId, entryIds));
+
+  const participantsByEntry = new Map<string, PointEntryParticipantLink[]>();
+  for (const p of participants) {
+    const list = participantsByEntry.get(p.eventPointEntryId) ?? [];
+    list.push(p);
+    participantsByEntry.set(p.eventPointEntryId, list);
+  }
+
+  return entries.map((e) => ({
+    ...e,
+    entryParticipants: participantsByEntry.get(e.id) ?? [],
+  }));
 }
 
 export type PointEntryWithTeam = EventPointEntry & {
@@ -2329,6 +2479,22 @@ export async function reassignEventPlaceholderRecordsToTeam(
     .update(eventPointEntry)
     .set({ eventTeamId: newTeamId })
     .where(inArray(eventPointEntry.id, placeholderPointEntryIds));
+}
+
+export async function migrateEventMatchParticipantMembersToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eventMatchParticipantMember)
+    .set({ userId, eventPlaceholderParticipantId: null })
+    .where(
+      eq(
+        eventMatchParticipantMember.eventPlaceholderParticipantId,
+        placeholderId,
+      ),
+    );
 }
 
 export async function deleteEventTeamMembershipsForPlaceholder(
