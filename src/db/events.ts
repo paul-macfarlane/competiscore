@@ -54,6 +54,8 @@ import {
   eventTeamMember,
   eventTeamMemberColumns,
   eventTournament,
+  eventTournamentParticipant,
+  eventTournamentParticipantMember,
   eventTournamentRoundMatch,
   user,
 } from "./schema";
@@ -2141,4 +2143,199 @@ export async function deleteEventPointEntriesForDiscretionaryAward(
   await dbOrTx
     .delete(eventPointEntry)
     .where(eq(eventPointEntry.eventDiscretionaryAwardId, awardId));
+}
+
+// ============================================================
+// Placeholder → User migrations
+// ============================================================
+
+export async function migrateEventMatchParticipantsToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eventMatchParticipant)
+    .set({ userId, eventPlaceholderParticipantId: null })
+    .where(
+      eq(eventMatchParticipant.eventPlaceholderParticipantId, placeholderId),
+    );
+}
+
+export async function migrateEventHighScoreEntriesToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eventHighScoreEntry)
+    .set({ userId, eventPlaceholderParticipantId: null })
+    .where(
+      eq(eventHighScoreEntry.eventPlaceholderParticipantId, placeholderId),
+    );
+}
+
+export async function migrateEventHighScoreEntryMembersToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eventHighScoreEntryMember)
+    .set({ userId, eventPlaceholderParticipantId: null })
+    .where(
+      eq(
+        eventHighScoreEntryMember.eventPlaceholderParticipantId,
+        placeholderId,
+      ),
+    );
+}
+
+export async function migrateEventTeamMembersToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  // First delete placeholder memberships where the user is already on the same team
+  const placeholderMemberships = await dbOrTx
+    .select({ eventTeamId: eventTeamMember.eventTeamId })
+    .from(eventTeamMember)
+    .where(eq(eventTeamMember.eventPlaceholderParticipantId, placeholderId));
+
+  const teamIds = placeholderMemberships.map((m) => m.eventTeamId);
+
+  if (teamIds.length > 0) {
+    const userMemberships = await dbOrTx
+      .select({ eventTeamId: eventTeamMember.eventTeamId })
+      .from(eventTeamMember)
+      .where(
+        and(
+          eq(eventTeamMember.userId, userId),
+          inArray(eventTeamMember.eventTeamId, teamIds),
+        ),
+      );
+
+    const conflictingTeamIds = new Set(
+      userMemberships.map((m) => m.eventTeamId),
+    );
+
+    if (conflictingTeamIds.size > 0) {
+      await dbOrTx
+        .delete(eventTeamMember)
+        .where(
+          and(
+            eq(eventTeamMember.eventPlaceholderParticipantId, placeholderId),
+            inArray(eventTeamMember.eventTeamId, [...conflictingTeamIds]),
+          ),
+        );
+    }
+  }
+
+  // Migrate remaining placeholder memberships to the user
+  await dbOrTx
+    .update(eventTeamMember)
+    .set({ userId, eventPlaceholderParticipantId: null })
+    .where(eq(eventTeamMember.eventPlaceholderParticipantId, placeholderId));
+}
+
+export async function migrateEventTournamentParticipantsToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eventTournamentParticipant)
+    .set({ userId, eventPlaceholderParticipantId: null })
+    .where(
+      eq(
+        eventTournamentParticipant.eventPlaceholderParticipantId,
+        placeholderId,
+      ),
+    );
+}
+
+export async function migrateEventTournamentParticipantMembersToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eventTournamentParticipantMember)
+    .set({ userId, eventPlaceholderParticipantId: null })
+    .where(
+      eq(
+        eventTournamentParticipantMember.eventPlaceholderParticipantId,
+        placeholderId,
+      ),
+    );
+}
+
+export async function migrateEventPointEntryParticipantsToUser(
+  placeholderId: string,
+  userId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eventPointEntryParticipant)
+    .set({ userId, eventPlaceholderParticipantId: null })
+    .where(
+      eq(
+        eventPointEntryParticipant.eventPlaceholderParticipantId,
+        placeholderId,
+      ),
+    );
+}
+
+export async function reassignEventPlaceholderRecordsToTeam(
+  placeholderId: string,
+  newTeamId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .update(eventMatchParticipant)
+    .set({ eventTeamId: newTeamId })
+    .where(
+      eq(eventMatchParticipant.eventPlaceholderParticipantId, placeholderId),
+    );
+
+  await dbOrTx
+    .update(eventHighScoreEntry)
+    .set({ eventTeamId: newTeamId })
+    .where(
+      eq(eventHighScoreEntry.eventPlaceholderParticipantId, placeholderId),
+    );
+
+  await dbOrTx
+    .update(eventTournamentParticipant)
+    .set({ eventTeamId: newTeamId })
+    .where(
+      eq(
+        eventTournamentParticipant.eventPlaceholderParticipantId,
+        placeholderId,
+      ),
+    );
+
+  const placeholderPointEntryIds = dbOrTx
+    .select({ id: eventPointEntryParticipant.eventPointEntryId })
+    .from(eventPointEntryParticipant)
+    .where(
+      eq(
+        eventPointEntryParticipant.eventPlaceholderParticipantId,
+        placeholderId,
+      ),
+    );
+
+  await dbOrTx
+    .update(eventPointEntry)
+    .set({ eventTeamId: newTeamId })
+    .where(inArray(eventPointEntry.id, placeholderPointEntryIds));
+}
+
+export async function deleteEventTeamMembershipsForPlaceholder(
+  placeholderId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .delete(eventTeamMember)
+    .where(eq(eventTeamMember.eventPlaceholderParticipantId, placeholderId));
 }

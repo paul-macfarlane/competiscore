@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/lib/server/auth";
 import { EventParticipantRole } from "@/lib/shared/constants";
+import { getEventParticipants } from "@/services/event-participants";
 import {
   checkEventPlaceholderActivity,
   getEventPlaceholders,
@@ -97,13 +98,16 @@ async function PlaceholdersContent({
     redirect(`/events/${eventId}/participants`);
   }
 
-  const [placeholdersResult, retiredResult] = await Promise.all([
-    getEventPlaceholders(userId, eventId),
-    getRetiredEventPlaceholders(userId, eventId),
-  ]);
+  const [placeholdersResult, retiredResult, participantsResult] =
+    await Promise.all([
+      getEventPlaceholders(userId, eventId),
+      getRetiredEventPlaceholders(userId, eventId),
+      getEventParticipants(userId, eventId),
+    ]);
 
   const placeholders = placeholdersResult.data ?? [];
   const retiredPlaceholders = retiredResult.data ?? [];
+  const participants = participantsResult.data ?? [];
 
   const activityChecks = await Promise.all(
     placeholders.map((p) =>
@@ -115,6 +119,17 @@ async function PlaceholdersContent({
     placeholder: p,
     hasActivity: activityChecks[i].data?.hasActivity ?? false,
   }));
+
+  // Compute linkable participants: exclude users already linked to any placeholder
+  const allPlaceholders = [...placeholders, ...retiredPlaceholders];
+  const linkedUserIds = new Set(
+    allPlaceholders
+      .map((p) => p.linkedUserId)
+      .filter((id): id is string => id !== null),
+  );
+  const linkableParticipants = participants.filter(
+    (p) => !linkedUserIds.has(p.userId),
+  );
 
   return (
     <div className="space-y-6">
@@ -192,6 +207,7 @@ async function PlaceholdersContent({
                         placeholder={placeholder}
                         eventId={eventId}
                         hasActivity={hasActivity}
+                        linkableParticipants={linkableParticipants}
                       />
                     ),
                   )}

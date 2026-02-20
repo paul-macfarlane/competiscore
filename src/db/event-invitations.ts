@@ -278,6 +278,22 @@ export async function checkExistingPendingEventInvitation(
   return result[0];
 }
 
+export async function cancelPendingEventInvitationsForPlaceholder(
+  placeholderId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<number> {
+  const result = await dbOrTx
+    .update(eventInvitation)
+    .set({ status: InvitationStatus.DECLINED })
+    .where(
+      and(
+        eq(eventInvitation.eventPlaceholderParticipantId, placeholderId),
+        eq(eventInvitation.status, InvitationStatus.PENDING),
+      ),
+    );
+  return result.rowCount ?? 0;
+}
+
 export async function checkExistingPendingEventInvitationForPlaceholder(
   placeholderId: string,
   dbOrTx: DBOrTx = db,

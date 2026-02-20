@@ -903,6 +903,12 @@ export const updateEventPlaceholderSchema = z.object({
     ),
 });
 
+export const linkEventPlaceholderSchema = z.object({
+  placeholderId: uuidSchema,
+  eventId: uuidSchema,
+  targetUserId: z.string().min(1, "Target user is required"),
+});
+
 // Discretionary awards
 export const discretionaryAwardRecipientSchema = z.object({
   eventTeamId: uuidSchema,

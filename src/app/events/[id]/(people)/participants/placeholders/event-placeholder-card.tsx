@@ -30,10 +30,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { EventParticipantWithUser } from "@/db/events";
 import { EventPlaceholderParticipant } from "@/db/schema";
 import { displayNameSchema } from "@/validators/members";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Archive, Edit, RotateCcw, Trash, User } from "lucide-react";
+import { Archive, Edit, Link2, RotateCcw, Trash, User } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -45,12 +46,14 @@ import {
   retireEventPlaceholderAction,
   updateEventPlaceholderAction,
 } from "./actions";
+import { LinkPlaceholderDialog } from "./link-placeholder-dialog";
 
 interface EventPlaceholderCardProps {
   placeholder: EventPlaceholderParticipant;
   eventId: string;
   isRetired?: boolean;
   hasActivity?: boolean;
+  linkableParticipants?: EventParticipantWithUser[];
 }
 
 const editFormSchema = z.object({
@@ -64,10 +67,12 @@ export function EventPlaceholderCard({
   eventId,
   isRetired = false,
   hasActivity = false,
+  linkableParticipants,
 }: EventPlaceholderCardProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [retireDialogOpen, setRetireDialogOpen] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<EditFormValues>({
@@ -154,24 +159,27 @@ export function EventPlaceholderCard({
             </div>
             <div>
               <p className="font-medium">{placeholder.displayName}</p>
-              {isRetired && (
-                <Badge variant="secondary" className="mt-1">
-                  Retired
-                </Badge>
-              )}
+              <div className="flex gap-1 mt-1">
+                {isRetired && <Badge variant="secondary">Retired</Badge>}
+                {placeholder.linkedUserId && (
+                  <Badge variant="outline">Linked</Badge>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
             {isRetired ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRestore}
-                disabled={isSubmitting}
-              >
-                <RotateCcw className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Restore</span>
-              </Button>
+              !placeholder.linkedUserId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRestore}
+                  disabled={isSubmitting}
+                >
+                  <RotateCcw className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Restore</span>
+                </Button>
+              )
             ) : (
               <>
                 <Button
@@ -182,6 +190,16 @@ export function EventPlaceholderCard({
                   <Edit className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Edit</span>
                 </Button>
+                {linkableParticipants && linkableParticipants.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setLinkDialogOpen(true)}
+                  >
+                    <Link2 className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Link</span>
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
@@ -296,6 +314,16 @@ export function EventPlaceholderCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {linkableParticipants && linkableParticipants.length > 0 && (
+        <LinkPlaceholderDialog
+          open={linkDialogOpen}
+          onOpenChange={setLinkDialogOpen}
+          placeholder={placeholder}
+          eventId={eventId}
+          linkableParticipants={linkableParticipants}
+        />
+      )}
     </>
   );
 }

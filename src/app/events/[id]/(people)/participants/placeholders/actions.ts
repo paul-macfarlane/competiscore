@@ -4,6 +4,7 @@ import { auth } from "@/lib/server/auth";
 import {
   createEventPlaceholder,
   deleteEventPlaceholder,
+  linkEventPlaceholderToUser,
   restoreEventPlaceholder,
   retireEventPlaceholder,
   updateEventPlaceholder,
@@ -71,6 +72,20 @@ export async function deleteEventPlaceholderAction(input: unknown) {
 
   if (result.data) {
     revalidatePath(`/events/${result.data.eventId}/participants/placeholders`);
+  }
+
+  return result;
+}
+
+export async function linkEventPlaceholderAction(input: unknown) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return { error: "Unauthorized" };
+
+  const result = await linkEventPlaceholderToUser(session.user.id, input);
+
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}/participants/placeholders`);
+    revalidatePath(`/events/${result.data.eventId}/participants`);
   }
 
   return result;

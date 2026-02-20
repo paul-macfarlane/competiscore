@@ -1,3 +1,4 @@
+import { cancelPendingEventInvitationsForPlaceholder } from "@/db/event-invitations";
 import {
   countEventPlaceholders as dbCountEventPlaceholders,
   createEventPlaceholder as dbCreateEventPlaceholder,
@@ -7,16 +8,30 @@ import {
   getEventPlaceholders as dbGetEventPlaceholders,
   getRetiredEventPlaceholders as dbGetRetiredEventPlaceholders,
   hasEventPlaceholderActivity as dbHasEventPlaceholderActivity,
+  linkEventPlaceholder as dbLinkEventPlaceholder,
   restoreEventPlaceholder as dbRestoreEventPlaceholder,
   retireEventPlaceholder as dbRetireEventPlaceholder,
   updateEventPlaceholder as dbUpdateEventPlaceholder,
+  deleteEventTeamMembershipsForPlaceholder,
+  getTeamForPlaceholder,
+  getTeamForUser,
+  migrateEventHighScoreEntriesToUser,
+  migrateEventHighScoreEntryMembersToUser,
+  migrateEventMatchParticipantsToUser,
+  migrateEventPointEntryParticipantsToUser,
+  migrateEventTeamMembersToUser,
+  migrateEventTournamentParticipantMembersToUser,
+  migrateEventTournamentParticipantsToUser,
+  reassignEventPlaceholderRecordsToTeam,
 } from "@/db/events";
+import { withTransaction } from "@/db/index";
 import { EventPlaceholderParticipant } from "@/db/schema";
 import { EventAction, canPerformEventAction } from "@/lib/shared/permissions";
 import { MAX_EVENT_PLACEHOLDER_PARTICIPANTS } from "@/services/constants";
 import {
   createEventPlaceholderSchema,
   eventPlaceholderIdSchema,
+  linkEventPlaceholderSchema,
   updateEventPlaceholderSchema,
 } from "@/validators/events";
 
@@ -213,6 +228,12 @@ export async function restoreEventPlaceholder(
     };
   }
 
+  if (placeholder.linkedUserId) {
+    return {
+      error: "Cannot restore a placeholder that has been linked to a user",
+    };
+  }
+
   const restored = await dbRestoreEventPlaceholder(placeholderId);
   if (!restored) {
     return { error: "Failed to restore placeholder participant" };
@@ -285,4 +306,122 @@ export async function deleteEventPlaceholder(
   }
 
   return { data: { deleted: true, eventId } };
+}
+
+export async function linkEventPlaceholderToUser(
+  userId: string,
+  input: unknown,
+): Promise<ServiceResult<{ linked: boolean; eventId: string }>> {
+  const parsed = linkEventPlaceholderSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: "Validation failed",
+      fieldErrors: formatZodErrors(parsed.error),
+    };
+  }
+
+  const { placeholderId, eventId, targetUserId } = parsed.data;
+
+  const participation = await dbGetEventParticipant(eventId, userId);
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  if (
+    !canPerformEventAction(participation.role, EventAction.MANAGE_PLACEHOLDERS)
+  ) {
+    return {
+      error: "You don't have permission to link placeholder participants",
+    };
+  }
+
+  const placeholder = await dbGetEventPlaceholderById(placeholderId);
+  if (!placeholder) {
+    return { error: "Placeholder participant not found" };
+  }
+
+  if (placeholder.eventId !== eventId) {
+    return { error: "Placeholder does not belong to this event" };
+  }
+
+  if (placeholder.linkedUserId) {
+    return { error: "Placeholder is already linked to a user" };
+  }
+
+  if (placeholder.retiredAt) {
+    return { error: "Cannot link a retired placeholder" };
+  }
+
+  const targetParticipation = await dbGetEventParticipant(
+    eventId,
+    targetUserId,
+  );
+  if (!targetParticipation) {
+    return { error: "Target user is not a participant in this event" };
+  }
+
+  // Check target user isn't already linked to another placeholder
+  const allPlaceholders = await dbGetEventPlaceholders(eventId, undefined, {
+    includeRetired: true,
+  });
+  const alreadyLinked = allPlaceholders.some(
+    (p) => p.linkedUserId === targetUserId,
+  );
+  if (alreadyLinked) {
+    return { error: "Target user is already linked to another placeholder" };
+  }
+
+  // Determine team situation for record reassignment
+  const [userTeam, placeholderTeam] = await Promise.all([
+    getTeamForUser(eventId, targetUserId),
+    getTeamForPlaceholder(eventId, placeholderId),
+  ]);
+
+  await withTransaction(async (tx) => {
+    // If user has a team, reassign all placeholder records to user's team
+    if (userTeam) {
+      await reassignEventPlaceholderRecordsToTeam(
+        placeholderId,
+        userTeam.id,
+        tx,
+      );
+      // Delete placeholder team memberships (user already has a team)
+      if (placeholderTeam) {
+        await deleteEventTeamMembershipsForPlaceholder(placeholderId, tx);
+      }
+    }
+
+    // Migrate userId on all records
+    await migrateEventMatchParticipantsToUser(placeholderId, targetUserId, tx);
+    await migrateEventHighScoreEntriesToUser(placeholderId, targetUserId, tx);
+    await migrateEventHighScoreEntryMembersToUser(
+      placeholderId,
+      targetUserId,
+      tx,
+    );
+    // Only migrate team membership if user doesn't already have a team
+    if (!userTeam) {
+      await migrateEventTeamMembersToUser(placeholderId, targetUserId, tx);
+    }
+    await migrateEventTournamentParticipantsToUser(
+      placeholderId,
+      targetUserId,
+      tx,
+    );
+    await migrateEventTournamentParticipantMembersToUser(
+      placeholderId,
+      targetUserId,
+      tx,
+    );
+    await migrateEventPointEntryParticipantsToUser(
+      placeholderId,
+      targetUserId,
+      tx,
+    );
+    await dbLinkEventPlaceholder(placeholderId, targetUserId, tx);
+    await cancelPendingEventInvitationsForPlaceholder(placeholderId, tx);
+    await dbRetireEventPlaceholder(placeholderId, tx);
+  });
+
+  return { data: { linked: true, eventId } };
 }
