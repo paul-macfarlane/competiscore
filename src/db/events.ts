@@ -2235,8 +2235,19 @@ export async function getEnrichedEventPointEntries(
       eventHighScoreSession,
       eq(eventPointEntry.eventHighScoreSessionId, eventHighScoreSession.id),
     )
+    .leftJoin(eventMatch, eq(eventPointEntry.eventMatchId, eventMatch.id))
+    .leftJoin(
+      eventTournament,
+      eq(eventPointEntry.eventTournamentId, eventTournament.id),
+    )
+    .leftJoin(
+      eventDiscretionaryAward,
+      eq(eventPointEntry.eventDiscretionaryAwardId, eventDiscretionaryAward.id),
+    )
     .where(eq(eventPointEntry.eventId, eventId))
-    .orderBy(eventPointEntry.createdAt);
+    .orderBy(
+      sql`COALESCE(${eventMatch.playedAt}, ${eventHighScoreSession.closedAt}, ${eventTournament.completedAt}, ${eventDiscretionaryAward.createdAt}, ${eventPointEntry.createdAt})`,
+    );
 
   if (entries.length === 0) return [];
 

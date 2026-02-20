@@ -90,7 +90,12 @@ export function PointsTimelineChart({
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} />
-              <YAxis tickLine={false} axisLine={false} domain={[0, yMax]} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                domain={[0, yMax]}
+                allowDecimals={false}
+              />
               <ChartLegend content={<ChartLegendContent />} />
               {teams.map((team) => (
                 <Line
