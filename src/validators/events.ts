@@ -174,6 +174,7 @@ const updateEventGameTypeConfigSchema = z.object({
     )
     .optional()
     .or(z.literal("")),
+  scoreDescription: z.string().max(50).optional(),
 });
 
 export const updateEventGameTypeSchema = z.discriminatedUnion("category", [

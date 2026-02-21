@@ -85,9 +85,11 @@ export const createGameTypeFormSchema = z.discriminatedUnion("category", [
 
 export type CreateGameTypeFormValues = z.infer<typeof createGameTypeFormSchema>;
 
-// For updates, we only allow updating the rules field in config
+const scoreDescriptionSchema = z.string().max(50).optional();
+
 const updateConfigSchema = z.object({
   rules: rulesSchema,
+  scoreDescription: scoreDescriptionSchema,
 });
 
 export const updateGameTypeFormSchema = z.discriminatedUnion("category", [

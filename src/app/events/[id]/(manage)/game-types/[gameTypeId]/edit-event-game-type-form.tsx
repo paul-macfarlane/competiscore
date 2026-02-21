@@ -24,7 +24,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EventGameType } from "@/db/schema";
-import { GAME_ICON_OPTIONS, GameCategory } from "@/lib/shared/constants";
+import {
+  GAME_ICON_OPTIONS,
+  GameCategory,
+  ScoringType,
+} from "@/lib/shared/constants";
 import { parseGameConfig } from "@/lib/shared/game-config-parser";
 import {
   GAME_TYPE_DESCRIPTION_MAX_LENGTH,
@@ -70,6 +74,11 @@ export function EditEventGameTypeForm({
     gameType.category as GameCategory,
   );
   const rules = "rules" in config ? config.rules : undefined;
+  const scoreDescription =
+    "scoreDescription" in config ? config.scoreDescription : undefined;
+  const hasScoreLabel =
+    gameType.category === GameCategory.HIGH_SCORE ||
+    ("scoringType" in config && config.scoringType === ScoringType.SCORE_BASED);
 
   const form = useForm<UpdateEventGameTypeFormValues>({
     resolver: zodResolver(updateEventGameTypeSchema),
@@ -80,6 +89,7 @@ export function EditEventGameTypeForm({
       logo: gameType.logo || undefined,
       config: {
         rules: rules || "",
+        scoreDescription: scoreDescription || "",
       },
     },
     mode: "onChange",
@@ -227,6 +237,31 @@ export function EditEventGameTypeForm({
             )}
           />
 
+          {hasScoreLabel && (
+            <FormField
+              control={form.control}
+              name="config.scoreDescription"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Score Label
+                    {gameType.category !== GameCategory.HIGH_SCORE &&
+                      " (Optional)"}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Points, Goals, Time, etc."
+                      maxLength={50}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
           <FormField
             control={form.control}
             name="config.rules"
@@ -248,9 +283,10 @@ export function EditEventGameTypeForm({
 
           <div className="rounded-lg border p-4 bg-muted/50">
             <p className="text-sm text-muted-foreground">
-              <strong>Note:</strong> Game category and scoring configuration
-              cannot be changed after creation to preserve historical data
-              integrity. If you need different settings, create a new game type.
+              <strong>Note:</strong> Game category and core scoring
+              configuration cannot be changed after creation to preserve
+              historical data integrity. If you need different settings, create
+              a new game type.
             </p>
           </div>
 
