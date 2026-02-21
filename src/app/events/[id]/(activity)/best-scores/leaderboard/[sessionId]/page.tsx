@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/server/auth";
-import { EventParticipantRole, GameCategory } from "@/lib/shared/constants";
+import {
+  EventParticipantRole,
+  EventStatus,
+  GameCategory,
+} from "@/lib/shared/constants";
 import {
   isHighScorePartnership,
   parseHighScoreConfig,
@@ -22,7 +26,10 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
 
+import { CloseSessionDialog } from "../../close-session-dialog";
 import { DeleteHighScoreEntryButton } from "../../delete-high-score-entry-button";
+import { DeleteSessionDialog } from "../../delete-session-dialog";
+import { ReopenSessionDialog } from "../../reopen-session-dialog";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -117,7 +124,8 @@ async function LeaderboardContent({
 
   if (!leaderboardResult.data) notFound();
 
-  const { eventId, gameTypeId, isOpen } = leaderboardResult.data;
+  const { eventId, gameTypeId, isOpen, hasPointConfig } =
+    leaderboardResult.data;
 
   const [eventResult, gameTypeResult, pointEntriesResult] = await Promise.all([
     getEvent(userId, eventId),
@@ -182,7 +190,7 @@ async function LeaderboardContent({
           </p>
         </div>
         {isOpen && (
-          <Button variant="outline" size="sm" asChild>
+          <Button size="sm" asChild>
             <Link href={`/events/${eventId}/best-scores/${sessionId}/submit`}>
               <Plus className="mr-1 h-4 w-4" />
               Submit Score
@@ -190,6 +198,35 @@ async function LeaderboardContent({
           </Button>
         )}
       </div>
+
+      {isOrganizer && event.status === EventStatus.ACTIVE && (
+        <div className="flex flex-wrap gap-2">
+          {isOpen && (
+            <>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/events/${eventId}/best-scores/${sessionId}/edit`}>
+                  Edit Session
+                </Link>
+              </Button>
+              <CloseSessionDialog
+                sessionId={sessionId}
+                hasPointConfig={hasPointConfig}
+              />
+            </>
+          )}
+          {!isOpen && (
+            <ReopenSessionDialog
+              sessionId={sessionId}
+              hasPointConfig={hasPointConfig}
+            />
+          )}
+          <DeleteSessionDialog
+            sessionId={sessionId}
+            isClosed={!isOpen}
+            hasPointConfig={hasPointConfig}
+          />
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -206,7 +243,7 @@ async function LeaderboardContent({
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3 sm:space-y-2">
               {entries.map((entry, index) => {
                 const teamPoints = entry.teamName
                   ? teamPointsMap.get(entry.teamName)

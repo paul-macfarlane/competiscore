@@ -36,7 +36,9 @@ export default async function EventManageLayout({
 
   return (
     <div className="space-y-4">
-      <SectionNavigation tabs={tabs} />
+      <div className="sticky top-[100px] z-20 -mx-4 px-4 md:-mx-6 md:px-6 py-1 bg-background border-b">
+        <SectionNavigation tabs={tabs} />
+      </div>
       {children}
     </div>
   );

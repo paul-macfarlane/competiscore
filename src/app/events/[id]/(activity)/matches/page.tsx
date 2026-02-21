@@ -149,7 +149,7 @@ async function MatchesContent({
       />
 
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Matches</h2>
+        <h1 className="text-2xl font-bold">Matches</h1>
         {canRecord && event.status === EventStatus.ACTIVE && (
           <Button size="sm" asChild>
             <Link href={`/events/${eventId}/matches/record`}>Record Match</Link>

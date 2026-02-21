@@ -29,8 +29,10 @@ export default async function EventLayout({
 
   return (
     <>
-      <div className="mx-auto max-w-4xl">
-        <EventNavigation eventId={id} isOrganizer={isOrganizer} />
+      <div className="sticky top-14 z-40 bg-background py-1 border-b">
+        <div className="mx-auto max-w-4xl">
+          <EventNavigation eventId={id} isOrganizer={isOrganizer} />
+        </div>
       </div>
       <div className="mx-auto max-w-4xl pt-4">{children}</div>
     </>

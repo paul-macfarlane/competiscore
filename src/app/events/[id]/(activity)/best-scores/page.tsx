@@ -48,10 +48,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { CloseSessionDialog } from "./close-session-dialog";
 import { DeleteHighScoreEntryButton } from "./delete-high-score-entry-button";
-import { DeleteSessionDialog } from "./delete-session-dialog";
-import { ReopenSessionDialog } from "./reopen-session-dialog";
 
 interface HighScoresPageProps {
   params: Promise<{ id: string }>;
@@ -181,7 +178,7 @@ async function HighScoresContent({
       />
 
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Best Score Sessions</h1>
+        <h1 className="text-2xl font-bold">Best Scores</h1>
         {isOrganizer && event.status === EventStatus.ACTIVE && (
           <Button asChild>
             <a href={`/events/${eventId}/best-scores/open`}>
@@ -248,7 +245,6 @@ async function HighScoresContent({
                   key={session.id}
                   session={session}
                   eventId={eventId}
-                  isOrganizer={isOrganizer}
                   gameTypeMap={gameTypeMap}
                   sessionEntriesMap={sessionEntriesMap}
                   pointEntries={sessionPointsMap.get(session.id) ?? []}
@@ -388,38 +384,11 @@ function OpenSessionCard({
         {session.description && (
           <p className="text-sm text-muted-foreground">{session.description}</p>
         )}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-sm text-muted-foreground">
-            Opened{" "}
-            {formatDistanceToNow(new Date(session.openedAt), {
-              addSuffix: true,
-            })}
-          </span>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href={`/events/${eventId}/best-scores/${session.id}/submit`}>
-                Submit Score
-              </a>
-            </Button>
-            {isOrganizer && (
-              <>
-                <Button variant="outline" size="sm" asChild>
-                  <a href={`/events/${eventId}/best-scores/${session.id}/edit`}>
-                    Edit
-                  </a>
-                </Button>
-                <CloseSessionDialog
-                  sessionId={session.id}
-                  hasPointConfig={!!session.placementPointConfig}
-                />
-                <DeleteSessionDialog
-                  sessionId={session.id}
-                  isClosed={false}
-                  hasPointConfig={!!session.placementPointConfig}
-                />
-              </>
-            )}
-          </div>
+        <div className="text-sm text-muted-foreground">
+          Opened{" "}
+          {formatDistanceToNow(new Date(session.openedAt), {
+            addSuffix: true,
+          })}
         </div>
 
         {displayGroups.length > 0 && (
@@ -462,13 +431,18 @@ function OpenSessionCard({
           </div>
         )}
       </CardContent>
-      <CardFooter>
-        <Button variant="outline" size="sm" className="w-full" asChild>
+      <CardFooter className="flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1" asChild>
           <Link
             href={`/events/${eventId}/best-scores/leaderboard/${session.id}`}
           >
-            View Leaderboard
+            View
           </Link>
+        </Button>
+        <Button size="sm" className="flex-1" asChild>
+          <a href={`/events/${eventId}/best-scores/${session.id}/submit`}>
+            Submit Score
+          </a>
         </Button>
       </CardFooter>
     </Card>
@@ -478,14 +452,12 @@ function OpenSessionCard({
 function ClosedSessionCard({
   session,
   eventId,
-  isOrganizer,
   gameTypeMap,
   sessionEntriesMap,
   pointEntries,
 }: {
   session: EventHighScoreSession;
   eventId: string;
-  isOrganizer: boolean;
   gameTypeMap: Map<string, EventGameType>;
   sessionEntriesMap: Map<string, SessionEntryWithTeam[]>;
   pointEntries: PointEntryWithTeam[];
@@ -541,31 +513,16 @@ function ClosedSessionCard({
         {session.description && (
           <p className="text-sm text-muted-foreground">{session.description}</p>
         )}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-muted-foreground">
-            {session.closedAt && (
-              <span>
-                Closed{" "}
-                {formatDistanceToNow(new Date(session.closedAt), {
-                  addSuffix: true,
-                })}
-              </span>
-            )}
-            <span className="ml-2">&middot; {entries.length} scores</span>
-          </div>
-          {isOrganizer && (
-            <div className="flex flex-wrap gap-2">
-              <ReopenSessionDialog
-                sessionId={session.id}
-                hasPointConfig={!!session.placementPointConfig}
-              />
-              <DeleteSessionDialog
-                sessionId={session.id}
-                isClosed={true}
-                hasPointConfig={!!session.placementPointConfig}
-              />
-            </div>
+        <div className="text-sm text-muted-foreground">
+          {session.closedAt && (
+            <span>
+              Closed{" "}
+              {formatDistanceToNow(new Date(session.closedAt), {
+                addSuffix: true,
+              })}
+            </span>
           )}
+          <span className="ml-2">&middot; {entries.length} scores</span>
         </div>
 
         {pointEntries.length > 0 && (
@@ -580,7 +537,7 @@ function ClosedSessionCard({
               return (
                 <div
                   key={pe.id}
-                  className="flex items-center justify-between rounded-md border px-3 py-2"
+                  className="flex items-center justify-between rounded-md border px-3 py-3 sm:py-2"
                 >
                   <div className="flex items-center gap-2">
                     <div className="flex items-center justify-center w-6 h-6 rounded-full bg-muted text-xs font-medium">
@@ -637,7 +594,7 @@ function ClosedSessionCard({
           <Link
             href={`/events/${eventId}/best-scores/leaderboard/${session.id}`}
           >
-            View Leaderboard
+            View
           </Link>
         </Button>
       </CardFooter>

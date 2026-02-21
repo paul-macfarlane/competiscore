@@ -22,11 +22,13 @@ import { deleteDiscretionaryAwardAction } from "../../actions";
 interface DeleteDiscretionaryDialogProps {
   awardId: string;
   awardName: string;
+  redirectTo?: string;
 }
 
 export function DeleteDiscretionaryDialog({
   awardId,
   awardName,
+  redirectTo,
 }: DeleteDiscretionaryDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -39,7 +41,11 @@ export function DeleteDiscretionaryDialog({
         toast.error(result.error);
       } else if (result.data) {
         toast.success("Award deleted.");
-        router.refresh();
+        if (redirectTo) {
+          router.push(redirectTo);
+        } else {
+          router.refresh();
+        }
       }
     });
   };

@@ -217,6 +217,7 @@ export async function getEventHighScoreLeaderboard(
     eventId: string;
     gameTypeId: string;
     isOpen: boolean;
+    hasPointConfig: boolean;
   }>
 > {
   const session = await dbGetHighScoreSessionById(sessionId);
@@ -263,6 +264,7 @@ export async function getEventHighScoreLeaderboard(
       eventId,
       gameTypeId,
       isOpen: session.status === "open",
+      hasPointConfig: !!session.placementPointConfig,
     },
   };
 }

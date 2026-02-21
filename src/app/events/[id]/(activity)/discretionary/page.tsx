@@ -15,15 +15,12 @@ import { EventParticipantRole, EventStatus } from "@/lib/shared/constants";
 import { getDiscretionaryAwards } from "@/services/event-discretionary";
 import { getEvent } from "@/services/events";
 import { idParamSchema } from "@/validators/shared";
-import { formatDistanceToNow } from "date-fns";
-import { Pencil, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-
-import { DeleteDiscretionaryDialog } from "./delete-discretionary-dialog";
 
 interface DiscretionaryPageProps {
   params: Promise<{ id: string }>;
@@ -42,16 +39,16 @@ export async function generateMetadata({
     headers: await headers(),
   });
   if (!session) {
-    return { title: "Discretionary Awards" };
+    return { title: "Discretionary" };
   }
 
   const result = await getEvent(session.user.id, parsed.data.id);
   if (result.error || !result.data) {
-    return { title: "Discretionary Awards" };
+    return { title: "Discretionary" };
   }
 
   return {
-    title: `Discretionary Awards - ${result.data.name}`,
+    title: `Discretionary - ${result.data.name}`,
     description: `Discretionary point awards for ${result.data.name}`,
   };
 }
@@ -110,10 +107,10 @@ async function DiscretionaryContent({
         ]}
       />
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Discretionary Awards</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Discretionary</h1>
         {isOrganizer && event.status === EventStatus.ACTIVE && (
-          <Button asChild className="shrink-0">
+          <Button asChild>
             <Link href={`/events/${eventId}/discretionary/create`}>
               <Plus className="mr-2 h-4 w-4" />
               Award Points
@@ -171,29 +168,12 @@ async function DiscretionaryContent({
                   ))}
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-xs text-muted-foreground">
-                  Awarded by {award.createdBy.name}{" "}
-                  {formatDistanceToNow(new Date(award.createdAt), {
-                    addSuffix: true,
-                  })}
-                </span>
-                {isOrganizer && event.status === EventStatus.ACTIVE && (
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link
-                        href={`/events/${eventId}/discretionary/${award.id}/edit`}
-                      >
-                        <Pencil className="mr-1 h-3.5 w-3.5" />
-                        Edit
-                      </Link>
-                    </Button>
-                    <DeleteDiscretionaryDialog
-                      awardId={award.id}
-                      awardName={award.name}
-                    />
-                  </div>
-                )}
+              <CardFooter>
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <Link href={`/events/${eventId}/discretionary/${award.id}`}>
+                    View
+                  </Link>
+                </Button>
               </CardFooter>
             </Card>
           ))}

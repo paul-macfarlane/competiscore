@@ -34,7 +34,7 @@ export function ScoreEntryRow({
     <div>
       <div
         className={cn(
-          "flex items-center justify-between rounded-md border px-3 py-2",
+          "flex items-center justify-between rounded-md border px-3 py-3 sm:py-2",
           hasHistory && "cursor-pointer hover:bg-muted/50",
         )}
         onClick={hasHistory ? () => setExpanded(!expanded) : undefined}
