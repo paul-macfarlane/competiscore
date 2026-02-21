@@ -50,7 +50,7 @@ import {
   archiveEventGameTypeAction,
   deleteEventGameTypeAction,
   updateEventGameTypeAction,
-} from "../../../actions";
+} from "../../actions";
 
 type EditEventGameTypeFormProps = {
   gameType: EventGameType;

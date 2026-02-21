@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/server/auth";
 import { getLeagueGameTypeLimitInfo } from "@/lib/server/limits";
+import { LeagueAction, canPerformAction } from "@/lib/shared/permissions";
+import { getLeagueWithRole } from "@/services/leagues";
 import { ArrowLeft } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -90,6 +92,14 @@ export default async function NewGameTypePage({ params }: PageProps) {
   });
   if (!session) {
     redirect("/");
+  }
+
+  const result = await getLeagueWithRole(leagueId, session.user.id);
+  if (
+    !result.data ||
+    !canPerformAction(result.data.role, LeagueAction.CREATE_GAME_TYPES)
+  ) {
+    redirect(`/leagues/${leagueId}/game-types`);
   }
 
   return (

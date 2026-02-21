@@ -29,10 +29,7 @@ export default async function EventManageLayout({
     redirect(`/events/${id}`);
   }
 
-  const tabs = [
-    { label: "Game Types", href: `/events/${id}/game-types` },
-    { label: "Settings", href: `/events/${id}/settings` },
-  ];
+  const tabs = [{ label: "Settings", href: `/events/${id}/settings` }];
 
   return (
     <div className="space-y-4">

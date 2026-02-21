@@ -241,7 +241,7 @@ export default async function MatchDetailPage({ params }: PageProps) {
             <span className="text-muted-foreground">Game Type</span>
             <Link
               href={`/leagues/${leagueId}/game-types/${match.gameTypeId}`}
-              className="font-medium hover:underline"
+              className="font-medium underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
             >
               {match.gameType?.name || "View Game Type"}
             </Link>

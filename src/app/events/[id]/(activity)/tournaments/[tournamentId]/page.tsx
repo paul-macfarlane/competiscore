@@ -227,7 +227,14 @@ export default async function EventTournamentDetailPage({ params }: Props) {
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-muted-foreground">Game Type</dt>
-              <dd className="font-medium">{tournament.gameType.name}</dd>
+              <dd className="font-medium">
+                <Link
+                  href={`/events/${eventId}/game-types/${tournament.gameType.id}`}
+                  className="underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+                >
+                  {tournament.gameType.name}
+                </Link>
+              </dd>
             </div>
             {isSwiss ? (
               <div>

@@ -139,6 +139,11 @@ export default async function LeagueMatchesPage({
                   matchId={item.id}
                   leagueId={leagueId}
                   gameTypeName={item.gameType?.name}
+                  gameTypeHref={
+                    item.gameType
+                      ? `/leagues/${leagueId}/game-types/${item.gameType.id}`
+                      : undefined
+                  }
                   scoreLabel={
                     item.gameType?.config
                       ? getScoreDescription(

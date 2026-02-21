@@ -291,7 +291,14 @@ function ChallengeCard({ challenge, leagueId, type }: ChallengeCardProps) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{challenge.gameType.name}</CardTitle>
+          <CardTitle className="text-lg">
+            <Link
+              href={`/leagues/${leagueId}/game-types/${challenge.gameType.id}`}
+              className="underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+            >
+              {challenge.gameType.name}
+            </Link>
+          </CardTitle>
           <Badge variant={statusBadgeVariant(challenge.status)}>
             {MATCH_STATUS_LABELS[challenge.status as MatchStatus]}
           </Badge>

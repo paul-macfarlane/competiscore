@@ -261,6 +261,11 @@ async function RecentMatchesSection({
                 matchId={item.id}
                 leagueId={leagueId}
                 gameTypeName={item.gameType?.name}
+                gameTypeHref={
+                  item.gameType
+                    ? `/leagues/${leagueId}/game-types/${item.gameType.id}`
+                    : undefined
+                }
                 scoreLabel={
                   item.gameType?.config
                     ? getScoreDescription(
@@ -294,9 +299,16 @@ function HighScoreActivityCard({
     <Card className="overflow-hidden">
       <CardHeader className="pb-2 space-y-1">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-semibold text-sm truncate">
-            {highScore.gameType?.name || "Best Score"}
-          </span>
+          {highScore.gameType ? (
+            <Link
+              href={`/leagues/${highScore.leagueId}/game-types/${highScore.gameType.id}`}
+              className="font-semibold text-sm truncate underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+            >
+              {highScore.gameType.name}
+            </Link>
+          ) : (
+            <span className="font-semibold text-sm truncate">Best Score</span>
+          )}
           <Badge variant="secondary" className="shrink-0 text-xs">
             <Trophy className="h-3 w-3 mr-1" />
             Score

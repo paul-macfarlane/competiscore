@@ -283,9 +283,16 @@ export default async function EventMatchDetailPage({ params }: PageProps) {
         <CardContent className="space-y-3">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Game Type</span>
-            <span className="font-medium">
-              {match.gameType?.name ?? "Unknown"}
-            </span>
+            {match.gameType ? (
+              <Link
+                href={`/events/${eventId}/game-types/${match.gameType.id}`}
+                className="font-medium underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+              >
+                {match.gameType.name}
+              </Link>
+            ) : (
+              <span className="font-medium">Unknown</span>
+            )}
           </div>
           {match.tournament && (
             <div className="flex justify-between gap-2">

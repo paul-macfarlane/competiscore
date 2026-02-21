@@ -203,6 +203,11 @@ async function MatchesContent({
                 matchId={match.id}
                 detailHref={`/events/${eventId}/matches/${match.id}`}
                 gameTypeName={match.gameType?.name}
+                gameTypeHref={
+                  match.gameType
+                    ? `/events/${eventId}/game-types/${match.gameType.id}`
+                    : undefined
+                }
                 scoreLabel={
                   match.gameType?.config
                     ? getScoreDescription(

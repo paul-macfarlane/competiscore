@@ -79,9 +79,7 @@ export default async function EventGameTypesPage({
     notFound();
   }
 
-  if (eventResult.data.role !== EventParticipantRole.ORGANIZER) {
-    redirect(`/events/${id}`);
-  }
+  const isOrganizer = eventResult.data.role === EventParticipantRole.ORGANIZER;
 
   return (
     <div className="space-y-6">
@@ -91,6 +89,7 @@ export default async function EventGameTypesPage({
           userId={session.user.id}
           eventName={eventResult.data.name}
           eventStatus={eventResult.data.status}
+          isOrganizer={isOrganizer}
         />
       </Suspense>
     </div>
@@ -102,11 +101,13 @@ async function GameTypesContent({
   userId,
   eventName,
   eventStatus,
+  isOrganizer,
 }: {
   eventId: string;
   userId: string;
   eventName: string;
   eventStatus: string;
+  isOrganizer: boolean;
 }) {
   const result = await getEventGameTypes(userId, eventId);
   const gameTypes = result.data ?? [];
@@ -124,15 +125,16 @@ async function GameTypesContent({
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Game Types</h1>
-        {(eventStatus === EventStatus.DRAFT ||
-          eventStatus === EventStatus.ACTIVE) && (
-          <Button asChild>
-            <Link href={`/events/${eventId}/game-types/new`}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Game Type
-            </Link>
-          </Button>
-        )}
+        {isOrganizer &&
+          (eventStatus === EventStatus.DRAFT ||
+            eventStatus === EventStatus.ACTIVE) && (
+            <Button asChild>
+              <Link href={`/events/${eventId}/game-types/new`}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Game Type
+              </Link>
+            </Button>
+          )}
       </div>
 
       {activeGameTypes.length === 0 ? (
@@ -194,7 +196,7 @@ async function GameTypesContent({
         </div>
       )}
 
-      {archivedGameTypes.length > 0 && (
+      {isOrganizer && archivedGameTypes.length > 0 && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle className="flex items-center gap-2 text-muted-foreground">

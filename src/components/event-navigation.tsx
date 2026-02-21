@@ -18,19 +18,20 @@ interface EventNavigationProps {
 
 const ACTIVITY_PREFIXES = ["/matches", "/best-scores", "/tournaments"];
 const PEOPLE_PREFIXES = ["/participants", "/teams"];
-const ORGANIZER_PREFIXES = ["/game-types", "/settings"];
+const ORGANIZER_PREFIXES = ["/settings"];
 
 const getTabs = (eventId: string, isOrganizer: boolean) => {
   const tabs = [
     { label: "Home", href: `/events/${eventId}` },
     { label: "Activity", href: `/events/${eventId}/matches` },
+    { label: "Game Types", href: `/events/${eventId}/game-types` },
     { label: "People", href: `/events/${eventId}/participants` },
   ];
 
   if (isOrganizer) {
     tabs.push({
       label: "Manage",
-      href: `/events/${eventId}/game-types`,
+      href: `/events/${eventId}/settings`,
     });
   }
 
@@ -55,10 +56,13 @@ export function EventNavigation({
     if (href === `${basePath}/matches`) {
       return ACTIVITY_PREFIXES.some((p) => suffix.startsWith(p));
     }
+    if (href === `${basePath}/game-types`) {
+      return suffix.startsWith("/game-types");
+    }
     if (href === `${basePath}/participants`) {
       return PEOPLE_PREFIXES.some((p) => suffix.startsWith(p));
     }
-    if (href === `${basePath}/game-types`) {
+    if (href === `${basePath}/settings`) {
       return ORGANIZER_PREFIXES.some((p) => suffix.startsWith(p));
     }
     return false;

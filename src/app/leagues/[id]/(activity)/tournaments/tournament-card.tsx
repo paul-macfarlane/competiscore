@@ -77,7 +77,12 @@ export function TournamentCard({ tournament, leagueId }: TournamentCardProps) {
       </CardHeader>
       <CardContent className="pt-0 pb-4">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          <span>{tournament.gameType.name}</span>
+          <Link
+            href={`/leagues/${leagueId}/game-types/${tournament.gameType.id}`}
+            className="underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+          >
+            {tournament.gameType.name}
+          </Link>
           <span className="flex items-center gap-1">
             <Users className="h-3 w-3" />
             {tournament.participantCount}{" "}

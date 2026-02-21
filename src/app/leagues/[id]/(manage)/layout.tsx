@@ -38,7 +38,6 @@ export default async function ManageLayout({
     canPerformAction(result.data.role, LeagueAction.EDIT_SETTINGS);
 
   const tabs = [
-    { label: "Game Types", href: `/leagues/${id}/game-types` },
     { label: "Moderation", href: `/leagues/${id}/moderation` },
     ...(canEditSettings
       ? [{ label: "Settings", href: `/leagues/${id}/settings` }]

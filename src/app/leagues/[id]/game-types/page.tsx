@@ -49,7 +49,7 @@ export default async function GameTypesPage({ params }: PageProps) {
           />
           <h1 className="mt-2 text-2xl font-bold md:text-3xl">Game Types</h1>
           <p className="text-muted-foreground text-sm">
-            Manage the games you compete in
+            The games you compete in
           </p>
         </div>
         <Suspense fallback={<Skeleton className="h-9 w-24" />}>
@@ -57,7 +57,10 @@ export default async function GameTypesPage({ params }: PageProps) {
         </Suspense>
       </div>
       <Suspense fallback={<Skeleton className="h-4 w-32" />}>
-        <GameTypeUsageIndicator leagueId={leagueId} />
+        <GameTypeUsageIndicatorIfManager
+          userId={session.user.id}
+          leagueId={leagueId}
+        />
       </Suspense>
       <Suspense fallback={<GameTypesSkeleton />}>
         <GameTypesList userId={session.user.id} leagueId={leagueId} />
@@ -115,7 +118,21 @@ async function CreateGameTypeButton({
   );
 }
 
-async function GameTypeUsageIndicator({ leagueId }: { leagueId: string }) {
+async function GameTypeUsageIndicatorIfManager({
+  userId,
+  leagueId,
+}: {
+  userId: string;
+  leagueId: string;
+}) {
+  const membership = await getLeagueMember(userId, leagueId);
+  if (
+    !membership ||
+    !canPerformAction(membership.role, LeagueAction.CREATE_GAME_TYPES)
+  ) {
+    return null;
+  }
+
   const limitInfo = await getLeagueGameTypeLimitInfo(leagueId);
 
   return (

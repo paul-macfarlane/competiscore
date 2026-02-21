@@ -159,7 +159,12 @@ export default async function TournamentDetailPage({ params }: PageProps) {
             <p className="text-muted-foreground">{tournament.description}</p>
           )}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            <span>{tournament.gameType.name}</span>
+            <Link
+              href={`/leagues/${leagueId}/game-types/${tournament.gameType.id}`}
+              className="underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+            >
+              {tournament.gameType.name}
+            </Link>
             <span>
               {
                 TOURNAMENT_TYPE_LABELS[

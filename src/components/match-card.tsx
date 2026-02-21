@@ -64,6 +64,7 @@ type MatchCardProps = {
   leagueId?: string;
   detailHref?: string;
   gameTypeName?: string | null;
+  gameTypeHref?: string;
   scoreLabel?: string | null;
   playedAt: Date | string;
   status?: string;
@@ -77,6 +78,7 @@ export function MatchCard({
   leagueId,
   detailHref,
   gameTypeName,
+  gameTypeHref,
   scoreLabel,
   playedAt,
   status = MatchStatus.COMPLETED,
@@ -114,16 +116,27 @@ export function MatchCard({
       <CardHeader className="pb-3 space-y-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            {gameTypeName && (
-              <span
-                className={cn(
-                  "font-semibold truncate",
-                  variant === "full" ? "text-base" : "text-sm",
-                )}
-              >
-                {gameTypeName}
-              </span>
-            )}
+            {gameTypeName &&
+              (gameTypeHref ? (
+                <Link
+                  href={gameTypeHref}
+                  className={cn(
+                    "font-semibold truncate underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground",
+                    variant === "full" ? "text-base" : "text-sm",
+                  )}
+                >
+                  {gameTypeName}
+                </Link>
+              ) : (
+                <span
+                  className={cn(
+                    "font-semibold truncate",
+                    variant === "full" ? "text-base" : "text-sm",
+                  )}
+                >
+                  {gameTypeName}
+                </span>
+              ))}
             <Badge variant={statusBadgeVariant(status)} className="shrink-0">
               {MATCH_STATUS_LABELS[status as MatchStatus]}
             </Badge>

@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 
-import { unarchiveEventGameTypeAction } from "../../actions";
+import { unarchiveEventGameTypeAction } from "../actions";
 
 type ArchivedEventGameTypeCardProps = {
   gameType: EventGameType;

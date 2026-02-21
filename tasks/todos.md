@@ -29,7 +29,6 @@ List of miscellaneous TODOs for the project.
 - The ability to add "notes" to matches, high scores, and tournaments. Could be a nice touch
 - Event scoring for best scores should factor in a participant/pairing/team having multiple submissions. For example, if a person has the top 2, they only get awarded points for first, and then 3rd gets points for their placement in 2nd, and so on. This obviously applies to both participant types of individuals and teams.
 - Allow for an optional 3rd place match/set of matches. Set up at tournament configuration. This is actually not needed in the short term so we can defer this. Rounds with multiple numbers of games is needed short term.
-- There should be some visibility of game type settings and rules for normal members of leagues and events so that they know how to play. I think we can let them SEE the game types and their details, just not edit. We should also have the game type names LINK to the relevent details page to people can jump from matches to game type. This applies to events. Will defer rethinking this for Leagues.
 - Best score matches could be configurable such that you can say only allow X submissions per user. This applies to both events and leagues.
 
 ### Small Tech Debt

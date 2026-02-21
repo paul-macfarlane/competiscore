@@ -23,20 +23,21 @@ const ACTIVITY_PREFIXES = [
   "/tournaments",
 ];
 const PEOPLE_PREFIXES = ["/members", "/teams", "/my-reports", "/my-warnings"];
-const MANAGE_PREFIXES = ["/game-types", "/moderation", "/settings"];
+const MANAGE_PREFIXES = ["/moderation", "/settings"];
 
 const getTabs = (leagueId: string, canManage: boolean) => {
   const tabs = [
     { label: "Home", href: `/leagues/${leagueId}` },
     { label: "Activity", href: `/leagues/${leagueId}/matches` },
     { label: "Leaderboards", href: `/leagues/${leagueId}/leaderboards` },
+    { label: "Game Types", href: `/leagues/${leagueId}/game-types` },
     { label: "People", href: `/leagues/${leagueId}/members` },
   ];
 
   if (canManage) {
     tabs.push({
       label: "Manage",
-      href: `/leagues/${leagueId}/game-types`,
+      href: `/leagues/${leagueId}/moderation`,
     });
   }
 
@@ -64,10 +65,13 @@ export function LeagueNavigation({
     if (href === `${basePath}/leaderboards`) {
       return suffix.startsWith("/leaderboards");
     }
+    if (href === `${basePath}/game-types`) {
+      return suffix.startsWith("/game-types");
+    }
     if (href === `${basePath}/members`) {
       return PEOPLE_PREFIXES.some((p) => suffix.startsWith(p));
     }
-    if (href === `${basePath}/game-types`) {
+    if (href === `${basePath}/moderation`) {
       return MANAGE_PREFIXES.some((p) => suffix.startsWith(p));
     }
     return false;

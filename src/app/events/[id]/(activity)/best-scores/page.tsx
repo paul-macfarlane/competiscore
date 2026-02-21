@@ -363,12 +363,25 @@ function OpenSessionCard({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-base">
-              {session.name || gameType?.name || "Unknown Game Type"}
+              {session.name ||
+                (gameType ? (
+                  <Link
+                    href={`/events/${eventId}/game-types/${gameType.id}`}
+                    className="underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+                  >
+                    {gameType.name}
+                  </Link>
+                ) : (
+                  "Unknown Game Type"
+                ))}
             </CardTitle>
             {session.name && gameType && (
-              <span className="text-xs text-muted-foreground">
+              <Link
+                href={`/events/${eventId}/game-types/${gameType.id}`}
+                className="text-xs text-muted-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+              >
                 {gameType.name}
-              </span>
+              </Link>
             )}
             {gameType && (
               <Badge variant="secondary" className="mt-1">
@@ -492,12 +505,25 @@ function ClosedSessionCard({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-base">
-              {session.name || gameType?.name || "Unknown Game Type"}
+              {session.name ||
+                (gameType ? (
+                  <Link
+                    href={`/events/${eventId}/game-types/${gameType.id}`}
+                    className="underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+                  >
+                    {gameType.name}
+                  </Link>
+                ) : (
+                  "Unknown Game Type"
+                ))}
             </CardTitle>
             {session.name && gameType && (
-              <span className="text-xs text-muted-foreground">
+              <Link
+                href={`/events/${eventId}/game-types/${gameType.id}`}
+                className="text-xs text-muted-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+              >
                 {gameType.name}
-              </span>
+              </Link>
             )}
             {gameType && (
               <Badge variant="secondary" className="mt-1">

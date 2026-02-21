@@ -187,9 +187,12 @@ async function TournamentsContent({
                           tournament.status as TournamentStatus
                         ] ?? tournament.status}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
+                      <Link
+                        href={`/events/${eventId}/game-types/${tournament.gameType.id}`}
+                        className="text-xs text-muted-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+                      >
                         {tournament.gameType.name}
-                      </span>
+                      </Link>
                     </div>
                   </div>
                 </div>

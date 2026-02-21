@@ -120,6 +120,19 @@ export default async function GameTypeDetailPage({ params }: PageProps) {
         </Alert>
       )}
 
+      {config.rules && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Rules</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-muted/50 rounded-md p-3">
+              <MarkdownViewer content={config.rules} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Configuration</CardTitle>
@@ -187,16 +200,6 @@ function H2HConfigDisplay({ config }: { config: H2HConfig }) {
             : `${config.minPlayersPerSide}-${config.maxPlayersPerSide}`}
         </span>
       </div>
-      {config.rules && (
-        <div className="space-y-2 pt-2 border-t">
-          <span className="text-muted-foreground text-sm font-medium">
-            Rules:
-          </span>
-          <div className="bg-muted/50 rounded-md p-3">
-            <MarkdownViewer content={config.rules} />
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -239,16 +242,6 @@ function FFAConfigDisplay({ config }: { config: FFAConfig }) {
           players
         </span>
       </div>
-      {config.rules && (
-        <div className="space-y-2 pt-2 border-t">
-          <span className="text-muted-foreground text-sm font-medium">
-            Rules:
-          </span>
-          <div className="bg-muted/50 rounded-md p-3">
-            <MarkdownViewer content={config.rules} />
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -276,16 +269,6 @@ function HighScoreConfigDisplay({ config }: { config: HighScoreConfig }) {
             : "Team"}
         </span>
       </div>
-      {config.rules && (
-        <div className="space-y-2 pt-2 border-t">
-          <span className="text-muted-foreground text-sm font-medium">
-            Rules:
-          </span>
-          <div className="bg-muted/50 rounded-md p-3">
-            <MarkdownViewer content={config.rules} />
-          </div>
-        </div>
-      )}
     </>
   );
 }

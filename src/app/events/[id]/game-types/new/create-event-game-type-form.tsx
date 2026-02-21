@@ -46,7 +46,7 @@ import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { createEventGameTypeAction } from "../../../actions";
+import { createEventGameTypeAction } from "../../actions";
 
 const TEMPLATE_LIST = Object.entries(GAME_TEMPLATES).map(([key, template]) => ({
   key,
