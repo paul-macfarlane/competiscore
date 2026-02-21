@@ -31,7 +31,6 @@ List of miscellaneous TODOs for the project.
 - Allow for an optional 3rd place match/set of matches. Set up at tournament configuration. This is actually not needed in the short term so we can defer this. Rounds with multiple numbers of games is needed short term.
 - There should be some visibility of game type settings and rules for normal members of leagues and events so that they know how to play. I think we can let them SEE the game types and their details, just not edit. We should also have the game type names LINK to the relevent details page to people can jump from matches to game type. This applies to events. Will defer rethinking this for Leagues.
 - Score label should be able to be adjusted on a game type even after being created, there is no harm in changing that.
-- For H2H and Free for all game types we should display the score labels on the settings page for that game type. This applies to both leagues and events
 - Best score matches could be configurable such that you can say only allow X submissions per user. This applies to both events and leagues.
 
 ### Small Tech Debt

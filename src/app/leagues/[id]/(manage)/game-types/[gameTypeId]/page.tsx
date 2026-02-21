@@ -155,10 +155,12 @@ function H2HConfigDisplay({ config }: { config: H2HConfig }) {
             : "Score-Based"}
         </span>
       </div>
-      {config.scoreDescription && (
+      {config.scoringType === ScoringType.SCORE_BASED && (
         <div className="flex justify-between">
           <span className="text-muted-foreground">Score Label:</span>
-          <span className="font-medium">{config.scoreDescription}</span>
+          <span className="font-medium">
+            {config.scoreDescription || "Score"}
+          </span>
         </div>
       )}
       {config.scoreOrder && (
@@ -210,10 +212,12 @@ function FFAConfigDisplay({ config }: { config: FFAConfig }) {
             : "Score-Based Ranking"}
         </span>
       </div>
-      {config.scoreDescription && (
+      {config.scoringType === ScoringType.SCORE_BASED && (
         <div className="flex justify-between">
           <span className="text-muted-foreground">Score Label:</span>
-          <span className="font-medium">{config.scoreDescription}</span>
+          <span className="font-medium">
+            {config.scoreDescription || "Score"}
+          </span>
         </div>
       )}
       {config.scoringType === ScoringType.SCORE_BASED && (
