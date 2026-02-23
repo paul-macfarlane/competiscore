@@ -11,12 +11,14 @@ export function MvpHighlightCard({
   individualContributions,
 }: MvpHighlightCardProps) {
   const allContributors = individualContributions.flatMap((team) =>
-    team.contributors.map((c) => ({
-      name: c.name,
-      points: c.points,
-      teamName: team.teamName,
-      teamColor: team.teamColor,
-    })),
+    team.contributors
+      .filter((c) => c.name !== team.teamName)
+      .map((c) => ({
+        name: c.name,
+        points: c.points,
+        teamName: team.teamName,
+        teamColor: team.teamColor,
+      })),
   );
 
   if (allContributors.length === 0) return null;

@@ -29,13 +29,15 @@ export function TopScorersBarChart({
   individualContributions,
 }: TopScorersBarChartProps) {
   const allContributors = individualContributions.flatMap((team) =>
-    team.contributors.map((c) => ({
-      name: c.name,
-      points: c.points,
-      teamName: team.teamName,
-      teamId: team.teamId,
-      teamColor: team.teamColor,
-    })),
+    team.contributors
+      .filter((c) => c.name !== team.teamName)
+      .map((c) => ({
+        name: c.name,
+        points: c.points,
+        teamName: team.teamName,
+        teamId: team.teamId,
+        teamColor: team.teamColor,
+      })),
   );
 
   allContributors.sort(
