@@ -300,7 +300,7 @@ describe("getEventMetrics", () => {
     expect(bob!.points).toBe(5);
   });
 
-  it("skips entries without individual info in individual contributions", async () => {
+  it("includes team-level entries in individual contributions using team name", async () => {
     vi.mocked(getEventParticipant).mockResolvedValue({
       id: TEST_IDS.EVENT_MEMBER_ID,
       eventId: TEST_IDS.EVENT_ID,
@@ -340,9 +340,15 @@ describe("getEventMetrics", () => {
 
     const individual = result.data!.individualContributions;
     expect(individual).toHaveLength(1);
-    expect(individual[0].contributors).toHaveLength(1);
-    expect(individual[0].contributors[0].name).toBe("Alice");
-    expect(individual[0].contributors[0].points).toBe(3);
+    expect(individual[0].contributors).toHaveLength(2);
+
+    const alice = individual[0].contributors.find((c) => c.name === "Alice");
+    expect(alice!.points).toBe(3);
+
+    const teamEntry = individual[0].contributors.find(
+      (c) => c.name === "Team A",
+    );
+    expect(teamEntry!.points).toBe(5);
   });
 
   it("correctly groups category breakdowns per team", async () => {

@@ -43,6 +43,7 @@ import {
   computeSwissStandings,
   getSwissRanking,
 } from "@/lib/shared/swiss-pairing";
+import { EVENT_TEAM_COLORS } from "@/services/constants";
 import { Shuffle, Trash2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -606,20 +607,35 @@ export function EventSwissTournamentView({
                           {!match.isBye &&
                             !match.isDraw &&
                             !match.isForfeit &&
-                            match.winnerId && (
-                              <Badge variant="default">
-                                {match.winnerId === match.participant1Id
-                                  ? getParticipantName(
-                                      match.participant1,
-                                      isTeamTournament,
-                                    )
-                                  : getParticipantName(
-                                      match.participant2,
-                                      isTeamTournament,
-                                    )}{" "}
-                                wins
-                              </Badge>
-                            )}
+                            match.winnerId &&
+                            (() => {
+                              const winner =
+                                match.winnerId === match.participant1Id
+                                  ? match.participant1
+                                  : match.participant2;
+                              const winnerColor = winner?.team.color
+                                ? EVENT_TEAM_COLORS.find(
+                                    (c) => c.value === winner.team.color,
+                                  )
+                                : null;
+                              return winnerColor ? (
+                                <span
+                                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                                  style={{
+                                    backgroundColor: winnerColor.bg,
+                                    color: winnerColor.text,
+                                  }}
+                                >
+                                  {getParticipantName(winner, isTeamTournament)}{" "}
+                                  wins
+                                </span>
+                              ) : (
+                                <Badge variant="default">
+                                  {getParticipantName(winner, isTeamTournament)}{" "}
+                                  wins
+                                </Badge>
+                              );
+                            })()}
                           {canUndoThis && (
                             <Button
                               variant="ghost"

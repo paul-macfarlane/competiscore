@@ -1,17 +1,8 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
 import { getTeamColorHex } from "@/services/constants";
 import type { TeamCategoryBreakdown } from "@/services/event-metrics";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 type CategoryBarChartProps = {
   categoryBreakdowns: TeamCategoryBreakdown[];
@@ -33,39 +24,36 @@ export function CategoryBarChart({
 
   const categories = Array.from(categorySet);
 
-  const teams = categoryBreakdowns.map((team) => ({
-    teamId: team.teamId,
-    teamName: team.teamName,
-    color: getTeamColorHex(team.teamColor),
-  }));
+  const categoryData = categories.map((category) => {
+    const teams = categoryBreakdowns
+      .map((team) => {
+        const cat = team.categories.find((c) => c.category === category);
+        return {
+          teamId: team.teamId,
+          teamName: team.teamName,
+          teamColor: team.teamColor,
+          points: cat?.points ?? 0,
+        };
+      })
+      .sort((a, b) => b.points - a.points);
 
-  // Each row is a category, with a key per team holding that team's points
-  const data = categories.map((category) => {
-    const row: Record<string, string | number> = {
-      name: categoryLabelMap.get(category) ?? category,
+    return {
+      category,
+      label: categoryLabelMap.get(category) ?? category,
+      teams,
     };
-    for (const team of categoryBreakdowns) {
-      const cat = team.categories.find((c) => c.category === category);
-      row[team.teamId] = cat?.points ?? 0;
-    }
-    return row;
   });
 
-  // Sort by total points descending
-  data.sort((a, b) => {
-    const totalA = teams.reduce(
-      (s, t) => s + ((a[t.teamId] as number) || 0),
-      0,
-    );
-    const totalB = teams.reduce(
-      (s, t) => s + ((b[t.teamId] as number) || 0),
-      0,
-    );
+  // Sort categories by total points descending
+  categoryData.sort((a, b) => {
+    const totalA = a.teams.reduce((s, t) => s + t.points, 0);
+    const totalB = b.teams.reduce((s, t) => s + t.points, 0);
     return totalB - totalA;
   });
 
-  const config: ChartConfig = Object.fromEntries(
-    teams.map((t) => [t.teamId, { label: t.teamName, color: t.color }]),
+  const maxPoints = Math.max(
+    ...categoryData.flatMap((c) => c.teams.map((t) => Math.abs(t.points))),
+    1,
   );
 
   return (
@@ -74,63 +62,43 @@ export function CategoryBarChart({
         <CardTitle>Points by Category</CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartContainer
-          config={config}
-          className="aspect-auto"
-          style={{ height: `${Math.max(data.length * 48, 100)}px` }}
-        >
-          <BarChart
-            data={data}
-            layout="vertical"
-            margin={{ left: 8, right: 16 }}
-          >
-            <CartesianGrid horizontal={false} />
-            <YAxis
-              dataKey="name"
-              type="category"
-              tickLine={false}
-              axisLine={false}
-              width={100}
-              tick={{ fontSize: 12 }}
-            />
-            <XAxis type="number" hide />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value, name) => {
-                    const team = teams.find((t) => t.teamId === name);
-                    return (
-                      <div className="flex items-center gap-2">
+        <div className="divide-y">
+          {categoryData.map((cat) => (
+            <div key={cat.category} className="py-3 first:pt-0 last:pb-0">
+              <p className="mb-2 text-sm font-medium">{cat.label}</p>
+              <div className="space-y-1.5">
+                {cat.teams.map((team) => {
+                  const color = getTeamColorHex(team.teamColor);
+                  const widthPct = Math.max(
+                    (Math.abs(team.points) / maxPoints) * 100,
+                    2,
+                  );
+
+                  return (
+                    <div key={team.teamId} className="flex items-center gap-2">
+                      <span className="w-20 shrink-0 truncate text-xs text-muted-foreground">
+                        {team.teamName}
+                      </span>
+                      <div className="relative h-5 flex-1">
                         <div
-                          className="h-2.5 w-2.5 rounded-[2px]"
+                          className="absolute inset-y-0 left-0 rounded-r"
                           style={{
-                            backgroundColor: team?.color ?? "#94a3b8",
+                            width: `${widthPct}%`,
+                            backgroundColor: color,
+                            opacity: 0.8,
                           }}
                         />
-                        <span className="font-medium">
-                          {team?.teamName ?? name}
-                        </span>
-                        <span className="font-mono font-bold tabular-nums">
-                          {value} pts
-                        </span>
                       </div>
-                    );
-                  }}
-                />
-              }
-            />
-            <ChartLegend content={<ChartLegendContent />} />
-            {teams.map((team, i) => (
-              <Bar
-                key={team.teamId}
-                dataKey={team.teamId}
-                stackId="category"
-                fill={team.color}
-                radius={i === teams.length - 1 ? [0, 4, 4, 0] : [0, 0, 0, 0]}
-              />
-            ))}
-          </BarChart>
-        </ChartContainer>
+                      <span className="w-14 shrink-0 text-right font-mono text-xs font-semibold tabular-nums">
+                        {team.points} pts
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
