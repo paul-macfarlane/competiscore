@@ -456,30 +456,40 @@ describe("updateEventTournament", () => {
     );
   });
 
-  it("returns error for bestOf field on non-draft tournament", async () => {
+  it("allows bestOf field on in-progress tournament", async () => {
     mockTournament({ status: "in_progress" });
     mockOrganizerMember();
+    vi.mocked(dbUpdateTournament).mockResolvedValue({
+      id: TEST_IDS.EVENT_TOURNAMENT_ID,
+      eventId: TEST_IDS.EVENT_ID,
+      name: "Test Tournament",
+    } as ReturnType<typeof dbUpdateTournament> extends Promise<infer T>
+      ? NonNullable<T>
+      : never);
     const result = await updateEventTournament(
       TEST_IDS.USER_ID,
       { eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID },
       { bestOf: 3 },
     );
-    expect(result.error).toBe(
-      "Only name, description, and icon can be edited after the tournament has started",
-    );
+    expect(result.data).toBeDefined();
   });
 
-  it("returns error for roundBestOf field on non-draft tournament", async () => {
+  it("allows roundBestOf field on in-progress tournament", async () => {
     mockTournament({ status: "in_progress" });
     mockOrganizerMember();
+    vi.mocked(dbUpdateTournament).mockResolvedValue({
+      id: TEST_IDS.EVENT_TOURNAMENT_ID,
+      eventId: TEST_IDS.EVENT_ID,
+      name: "Test Tournament",
+    } as ReturnType<typeof dbUpdateTournament> extends Promise<infer T>
+      ? NonNullable<T>
+      : never);
     const result = await updateEventTournament(
       TEST_IDS.USER_ID,
       { eventTournamentId: TEST_IDS.EVENT_TOURNAMENT_ID },
       { roundBestOf: { "1": 3 } },
     );
-    expect(result.error).toBe(
-      "Only name, description, and icon can be edited after the tournament has started",
-    );
+    expect(result.data).toBeDefined();
   });
 
   it("updates tournament successfully", async () => {

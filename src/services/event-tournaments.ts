@@ -294,17 +294,23 @@ export async function updateEventTournament(
   }
 
   const isDraft = tournamentData.status === TournamentStatus.DRAFT;
+  const isInProgress = tournamentData.status === TournamentStatus.IN_PROGRESS;
+  const isSwissTournament =
+    tournamentData.tournamentType === TournamentType.SWISS;
   const hasDraftOnlyFields =
     data.seedingType !== undefined ||
     data.startDate !== undefined ||
-    data.bestOf !== undefined ||
-    data.roundBestOf !== undefined ||
     data.roundConfig !== undefined ||
-    data.tournamentType !== undefined ||
-    data.placementPointConfig !== undefined ||
-    data.swissRounds !== undefined;
+    data.tournamentType !== undefined;
 
-  if (!isDraft && hasDraftOnlyFields) {
+  const hasSwissRoundsUpdate =
+    data.swissRounds !== undefined && isInProgress && isSwissTournament;
+
+  if (
+    !isDraft &&
+    (hasDraftOnlyFields ||
+      (data.swissRounds !== undefined && !hasSwissRoundsUpdate))
+  ) {
     return {
       error:
         "Only name, description, and icon can be edited after the tournament has started",
@@ -354,28 +360,45 @@ export async function updateEventTournament(
     }
   }
 
+  if (hasSwissRoundsUpdate && data.swissRounds !== tournamentData.totalRounds) {
+    const bracket = await dbGetBracket(eventTournamentId);
+    const currentRound =
+      bracket.length > 0 ? Math.max(...bracket.map((m) => m.round)) : 0;
+    if (data.swissRounds! <= currentRound) {
+      return {
+        error: "Validation failed",
+        fieldErrors: {
+          swissRounds: `Must be greater than the current round (${currentRound})`,
+        },
+      };
+    }
+    totalRoundsToApply = data.swissRounds;
+  }
+
   const updated = await dbUpdateTournament(eventTournamentId, {
     name: data.name,
     description: data.description,
     logo: data.logo,
+    bestOf: data.bestOf,
+    ...(data.roundBestOf !== undefined && {
+      roundBestOf: data.roundBestOf ? JSON.stringify(data.roundBestOf) : null,
+    }),
+    ...(totalRoundsToApply !== undefined && {
+      totalRounds: totalRoundsToApply,
+    }),
+    placementPointConfig:
+      data.placementPointConfig !== undefined
+        ? data.placementPointConfig.length > 0
+          ? JSON.stringify(data.placementPointConfig)
+          : null
+        : undefined,
     ...(isDraft && {
       tournamentType: tournamentTypeToApply,
       seedingType: seedingTypeToApply,
       startDate: data.startDate,
-      totalRounds: totalRoundsToApply,
-      bestOf: data.bestOf,
-      ...(data.roundBestOf !== undefined && {
-        roundBestOf: data.roundBestOf ? JSON.stringify(data.roundBestOf) : null,
-      }),
       ...(data.roundConfig !== undefined && {
         roundConfig: data.roundConfig ? JSON.stringify(data.roundConfig) : null,
       }),
-      placementPointConfig:
-        data.placementPointConfig !== undefined
-          ? data.placementPointConfig.length > 0
-            ? JSON.stringify(data.placementPointConfig)
-            : null
-          : undefined,
     }),
   });
 

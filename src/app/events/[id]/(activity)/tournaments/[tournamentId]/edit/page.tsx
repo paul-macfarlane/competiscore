@@ -47,6 +47,11 @@ export default async function EditEventTournamentPage({ params }: PageProps) {
 
   if (event.role !== EventParticipantRole.ORGANIZER) notFound();
 
+  const currentRound =
+    tournament.bracket.length > 0
+      ? Math.max(...tournament.bracket.map((m) => m.round))
+      : null;
+
   return (
     <div className="space-y-6">
       <LeagueBreadcrumb
@@ -76,6 +81,7 @@ export default async function EditEventTournamentPage({ params }: PageProps) {
           roundBestOf={tournament.roundBestOf}
           roundConfig={tournament.roundConfig ?? null}
           placementPointConfig={tournament.placementPointConfig ?? null}
+          currentRound={currentRound}
         />
       </div>
     </div>

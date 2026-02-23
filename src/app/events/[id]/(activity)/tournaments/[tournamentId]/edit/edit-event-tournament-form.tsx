@@ -80,6 +80,7 @@ type EditEventTournamentFormProps = {
   roundBestOf: string | null;
   roundConfig: string | null;
   placementPointConfig: string | null;
+  currentRound: number | null;
 };
 
 export function EditEventTournamentForm({
@@ -96,10 +97,12 @@ export function EditEventTournamentForm({
   roundBestOf,
   roundConfig,
   placementPointConfig,
+  currentRound,
 }: EditEventTournamentFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isDraft = status === TournamentStatus.DRAFT;
+  const isInProgress = status === TournamentStatus.IN_PROGRESS;
 
   const parsedRoundBestOf: Record<string, number> | undefined = (() => {
     if (!roundBestOf) return undefined;
@@ -204,6 +207,12 @@ export function EditEventTournamentForm({
             name: values.name,
             description: values.description,
             logo: values.logo,
+            ...(isInProgress && {
+              bestOf: values.bestOf,
+              roundBestOf: values.roundBestOf,
+              placementPointConfig: values.placementPointConfig,
+              ...(isSwiss && { swissRounds: values.swissRounds }),
+            }),
           };
       const result = await updateEventTournamentAction(
         { eventTournamentId: tournamentId },
@@ -389,32 +398,37 @@ export function EditEventTournamentForm({
           />
         )}
 
-        {isDraft && isSwiss && (
+        {(isDraft || isInProgress) && isSwiss && (
           <FormField
             control={form.control}
             name="swissRounds"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Number of Rounds (Optional)</FormLabel>
+                <FormLabel>
+                  Number of Rounds{isDraft ? " (Optional)" : ""}
+                </FormLabel>
                 <FormControl>
                   <Input
                     type="number"
-                    min={MIN_SWISS_ROUNDS}
+                    min={
+                      isInProgress && currentRound
+                        ? currentRound
+                        : MIN_SWISS_ROUNDS
+                    }
                     max={MAX_SWISS_ROUNDS}
-                    placeholder="Auto-calculated"
+                    placeholder={isDraft ? "Auto-calculated" : undefined}
                     {...field}
                     value={field.value ?? ""}
                     onChange={(e) => {
                       const value = e.target.value;
-                      field.onChange(
-                        value === "" ? undefined : parseInt(value, 10),
-                      );
+                      field.onChange(value === "" ? "" : parseInt(value, 10));
                     }}
                   />
                 </FormControl>
                 <FormDescription>
-                  Leave blank to auto-calculate based on participant count
-                  (log2). Typically 3-7 rounds.
+                  {isDraft
+                    ? "Leave blank to auto-calculate based on participant count (log2). Typically 3-7 rounds."
+                    : `Currently on round ${currentRound ?? 0}. Set a higher number to add more rounds.`}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -424,7 +438,7 @@ export function EditEventTournamentForm({
 
         {isDraft && isFFAGroupStage && <EditFFARoundConfigEditor form={form} />}
 
-        {isDraft && !isSwiss && !isFFAGroupStage && (
+        {(isDraft || isInProgress) && !isSwiss && !isFFAGroupStage && (
           <div className="space-y-4">
             <FormField
               control={form.control}
@@ -575,7 +589,7 @@ export function EditEventTournamentForm({
           </div>
         )}
 
-        {isDraft && (
+        {(isDraft || isInProgress) && (
           <div className="space-y-4">
             <div>
               <h3 className="text-sm font-medium">
