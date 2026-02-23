@@ -14,15 +14,14 @@ import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import {
-  CategoryBreakdownChart,
-  ContributorsPieChart,
-} from "./contributors-pie-chart";
+import { CategoryBarChart } from "./category-bar-chart";
 import { LeaveEventButton } from "./leave-event-button";
+import { MvpHighlightCard } from "./mvp-highlight-card";
 import { PointsTimelineChart } from "./points-timeline-chart";
 import { ScoringHistoryLog } from "./scoring-history-log";
 import { StandingsBarChart } from "./standings-bar-chart";
-import { TeamSharePieChart } from "./team-share-pie-chart";
+import { TeamContributionChart } from "./team-contribution-chart";
+import { TopScorersBarChart } from "./top-scorers-bar-chart";
 
 interface EventHomePageProps {
   params: Promise<{ id: string }>;
@@ -195,7 +194,6 @@ async function EventMetricsSection({
   const {
     log,
     cumulativeTimeline,
-    teamContributions,
     individualContributions,
     categoryBreakdowns,
     leaderboard,
@@ -229,17 +227,25 @@ async function EventMetricsSection({
         />
       )}
 
-      {teamContributions.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TeamSharePieChart teamContributions={teamContributions} />
-          {individualContributions.length > 0 ? (
-            <ContributorsPieChart
-              individualContributions={individualContributions}
-            />
-          ) : (
-            <CategoryBreakdownChart categoryBreakdowns={categoryBreakdowns} />
-          )}
-        </div>
+      {individualContributions.length > 0 && (
+        <MvpHighlightCard individualContributions={individualContributions} />
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {individualContributions.length > 0 && (
+          <TopScorersBarChart
+            individualContributions={individualContributions}
+          />
+        )}
+        {categoryBreakdowns.length > 0 && (
+          <CategoryBarChart categoryBreakdowns={categoryBreakdowns} />
+        )}
+      </div>
+
+      {individualContributions.length > 0 && (
+        <TeamContributionChart
+          individualContributions={individualContributions}
+        />
       )}
 
       <ScoringHistoryLog log={log} />
