@@ -38,14 +38,17 @@ import {
 } from "@/lib/shared/game-config-parser";
 import {
   MAX_BEST_OF,
+  MAX_FFA_GROUP_SIZE,
+  MAX_FFA_TOURNAMENT_ROUNDS,
   MAX_SWISS_ROUNDS,
+  MIN_FFA_GROUP_SIZE,
   MIN_SWISS_ROUNDS,
   TOURNAMENT_DESCRIPTION_MAX_LENGTH,
   TOURNAMENT_NAME_MAX_LENGTH,
 } from "@/services/constants";
 import { createEventTournamentSchema } from "@/validators/events";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Info, Plus, Trash2, Trophy } from "lucide-react";
+import { Info, Minus, Plus, Trash2, Trophy } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -237,22 +240,194 @@ function BestOfSection({
   );
 }
 
+function FFARoundConfigEditor({
+  form,
+}: {
+  form: ReturnType<typeof useForm<FormValues>>;
+}) {
+  const existingConfig = form.getValues("roundConfig");
+  const initialRounds = (() => {
+    if (existingConfig && typeof existingConfig === "object") {
+      const entries = Object.entries(existingConfig).sort(
+        ([a], [b]) => Number(a) - Number(b),
+      );
+      if (entries.length > 0) {
+        return entries.map(([, v]) => ({
+          groupSize: String(v.groupSize),
+          advanceCount: String(v.advanceCount),
+        }));
+      }
+    }
+    return [
+      { groupSize: "4", advanceCount: "1" },
+      { groupSize: "4", advanceCount: "0" },
+    ];
+  })();
+
+  const [rounds, setRounds] =
+    useState<{ groupSize: string; advanceCount: string }[]>(initialRounds);
+
+  const updateFormRoundConfig = (
+    updated: { groupSize: string; advanceCount: string }[],
+  ) => {
+    const config: Record<string, { groupSize: number; advanceCount: number }> =
+      {};
+    for (let i = 0; i < updated.length; i++) {
+      const gs = parseInt(updated[i].groupSize, 10);
+      const ac = parseInt(updated[i].advanceCount, 10);
+      if (!isNaN(gs) && !isNaN(ac)) {
+        config[String(i + 1)] = { groupSize: gs, advanceCount: ac };
+      }
+    }
+    form.setValue(
+      "roundConfig",
+      Object.keys(config).length > 0 ? config : undefined,
+    );
+  };
+
+  const addRound = () => {
+    const updated = [...rounds];
+    if (updated.length > 0) {
+      updated[updated.length - 1] = {
+        ...updated[updated.length - 1],
+        advanceCount: "1",
+      };
+    }
+    updated.push({ groupSize: "4", advanceCount: "0" });
+    setRounds(updated);
+    updateFormRoundConfig(updated);
+  };
+
+  const removeRound = () => {
+    if (rounds.length <= 1) return;
+    const updated = rounds.slice(0, -1);
+    updated[updated.length - 1] = {
+      ...updated[updated.length - 1],
+      advanceCount: "0",
+    };
+    setRounds(updated);
+    updateFormRoundConfig(updated);
+  };
+
+  return (
+    <div className="space-y-4 rounded-lg border p-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium">Round Configuration</h4>
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={removeRound}
+            disabled={rounds.length <= 1}
+          >
+            <Minus className="mr-1 h-3 w-3" />
+            Remove Round
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addRound}
+            disabled={rounds.length >= MAX_FFA_TOURNAMENT_ROUNDS}
+          >
+            <Plus className="mr-1 h-3 w-3" />
+            Add Round
+          </Button>
+        </div>
+      </div>
+
+      {rounds.map((round, index) => {
+        const isFinal = index === rounds.length - 1;
+        return (
+          <div key={index} className="flex items-end gap-3">
+            <div className="w-24 shrink-0 pb-2 text-sm font-medium">
+              {isFinal ? "Final" : `Round ${index + 1}`}
+            </div>
+            <div className="flex-1">
+              {index === 0 && (
+                <label className="text-sm font-medium">Group Size</label>
+              )}
+              <Input
+                type="number"
+                min={MIN_FFA_GROUP_SIZE}
+                max={MAX_FFA_GROUP_SIZE}
+                step={1}
+                value={round.groupSize}
+                onChange={(e) => {
+                  const updated = [...rounds];
+                  updated[index] = {
+                    ...updated[index],
+                    groupSize: e.target.value,
+                  };
+                  setRounds(updated);
+                  updateFormRoundConfig(updated);
+                }}
+              />
+            </div>
+            <div className="flex-1">
+              {index === 0 && (
+                <label className="text-sm font-medium">Advance Count</label>
+              )}
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={isFinal ? "0" : round.advanceCount}
+                disabled={isFinal}
+                onChange={(e) => {
+                  if (isFinal) return;
+                  const updated = [...rounds];
+                  updated[index] = {
+                    ...updated[index],
+                    advanceCount: e.target.value,
+                  };
+                  setRounds(updated);
+                  updateFormRoundConfig(updated);
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      <p className="text-muted-foreground text-xs">
+        Configure the group size and how many advance from each group per round.
+        The final round advance count is always 0.
+      </p>
+    </div>
+  );
+}
+
 export function CreateEventTournamentForm({ eventId, gameTypes }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  const initialGameType = gameTypes.length === 1 ? gameTypes[0] : null;
+  const initialIsFFAGroupStage =
+    initialGameType?.category === GameCategory.FREE_FOR_ALL;
+  const initialTournamentType = initialIsFFAGroupStage
+    ? TournamentType.FFA_GROUP_STAGE
+    : TournamentType.SINGLE_ELIMINATION;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(createEventTournamentSchema),
     defaultValues: {
       eventId,
-      gameTypeId: gameTypes.length === 1 ? gameTypes[0].id : "",
+      gameTypeId: initialGameType?.id ?? "",
       name: "",
       description: "",
       logo: "",
-      tournamentType: TournamentType.SINGLE_ELIMINATION,
+      tournamentType: initialTournamentType,
       participantType: ParticipantType.INDIVIDUAL,
-      seedingType: SeedingType.RANDOM,
+      seedingType: initialIsFFAGroupStage ? undefined : SeedingType.RANDOM,
       bestOf: 1,
+      roundConfig: initialIsFFAGroupStage
+        ? {
+            "1": { groupSize: 4, advanceCount: 1 },
+            "2": { groupSize: 4, advanceCount: 0 },
+          }
+        : undefined,
       placementPointConfig: [
         { placement: 1, points: 10 },
         { placement: 2, points: 7 },
@@ -368,7 +543,34 @@ export function CreateEventTournamentForm({ eventId, gameTypes }: Props) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Game Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select
+                onValueChange={(val) => {
+                  field.onChange(val);
+                  const gt = gameTypes.find((g) => g.id === val);
+                  if (gt?.category === GameCategory.FREE_FOR_ALL) {
+                    form.setValue(
+                      "tournamentType",
+                      TournamentType.FFA_GROUP_STAGE,
+                    );
+                    if (!form.getValues("roundConfig")) {
+                      form.setValue("roundConfig", {
+                        "1": { groupSize: 4, advanceCount: 1 },
+                        "2": { groupSize: 4, advanceCount: 0 },
+                      });
+                    }
+                  } else if (
+                    form.getValues("tournamentType") ===
+                    TournamentType.FFA_GROUP_STAGE
+                  ) {
+                    form.setValue(
+                      "tournamentType",
+                      TournamentType.SINGLE_ELIMINATION,
+                    );
+                    form.setValue("roundConfig", undefined);
+                  }
+                }}
+                defaultValue={field.value}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a game type" />
@@ -454,50 +656,78 @@ export function CreateEventTournamentForm({ eventId, gameTypes }: Props) {
           return null;
         })()}
 
-        <FormField
-          control={form.control}
-          name="tournamentType"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Tournament Format</FormLabel>
-              <Select
-                onValueChange={(val) => {
-                  field.onChange(val);
-                  if (val === TournamentType.SWISS) {
-                    form.setValue("seedingType", undefined);
-                  } else {
-                    form.setValue("seedingType", SeedingType.RANDOM);
-                    form.setValue("swissRounds", undefined);
-                  }
-                }}
-                value={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Object.entries(TOURNAMENT_TYPE_LABELS).map(
-                    ([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                {field.value === TournamentType.SWISS
-                  ? "Participants play a fixed number of rounds against opponents with similar scores. No one is eliminated."
-                  : "Lose and you're out. Last one standing wins."}
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {(() => {
+          const selectedGameTypeId = form.watch("gameTypeId");
+          const selectedGameType = gameTypes.find(
+            (gt) => gt.id === selectedGameTypeId,
+          );
+          const isH2H =
+            selectedGameType?.category === GameCategory.HEAD_TO_HEAD;
+          const isFFA =
+            selectedGameType?.category === GameCategory.FREE_FOR_ALL;
+          const availableTypes = isH2H
+            ? ([
+                TournamentType.SINGLE_ELIMINATION,
+                TournamentType.SWISS,
+              ] as const)
+            : isFFA
+              ? ([TournamentType.FFA_GROUP_STAGE] as const)
+              : ([
+                  TournamentType.SINGLE_ELIMINATION,
+                  TournamentType.SWISS,
+                ] as const);
+          return (
+            <FormField
+              control={form.control}
+              name="tournamentType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tournament Format</FormLabel>
+                  <Select
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      if (val === TournamentType.SWISS) {
+                        form.setValue("seedingType", undefined);
+                      } else if (val === TournamentType.FFA_GROUP_STAGE) {
+                        form.setValue("seedingType", undefined);
+                        form.setValue("swissRounds", undefined);
+                        form.setValue("bestOf", 1);
+                      } else {
+                        form.setValue("seedingType", SeedingType.RANDOM);
+                        form.setValue("swissRounds", undefined);
+                        form.setValue("roundConfig", undefined);
+                      }
+                    }}
+                    value={field.value ?? availableTypes[0]}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableTypes.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {TOURNAMENT_TYPE_LABELS[value]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {field.value === TournamentType.SWISS
+                      ? "Participants play a fixed number of rounds against opponents with similar scores. No one is eliminated."
+                      : field.value === TournamentType.FFA_GROUP_STAGE
+                        ? "Participants are divided into groups. Top finishers advance through rounds until the final."
+                        : "Lose and you're out. Last one standing wins."}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          );
+        })()}
 
-        {form.watch("tournamentType") !== TournamentType.SWISS && (
+        {form.watch("tournamentType") === TournamentType.SINGLE_ELIMINATION && (
           <FormField
             control={form.control}
             name="seedingType"
@@ -565,9 +795,14 @@ export function CreateEventTournamentForm({ eventId, gameTypes }: Props) {
           />
         )}
 
-        {form.watch("tournamentType") !== TournamentType.SWISS && (
-          <BestOfSection form={form} />
+        {form.watch("tournamentType") === TournamentType.FFA_GROUP_STAGE && (
+          <FFARoundConfigEditor form={form} />
         )}
+
+        {form.watch("tournamentType") !== TournamentType.SWISS &&
+          form.watch("tournamentType") !== TournamentType.FFA_GROUP_STAGE && (
+            <BestOfSection form={form} />
+          )}
 
         <div className="space-y-4">
           <div>

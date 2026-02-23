@@ -51,8 +51,11 @@ export default async function NewEventTournamentPage({ params }: Props) {
 
   const gameTypesResult = await getEventGameTypes(session.user.id, eventId);
   const allGameTypes = gameTypesResult.data ?? [];
-  const h2hGameTypes = allGameTypes.filter(
-    (gt) => gt.category === GameCategory.HEAD_TO_HEAD && !gt.isArchived,
+  const tournamentGameTypes = allGameTypes.filter(
+    (gt) =>
+      (gt.category === GameCategory.HEAD_TO_HEAD ||
+        gt.category === GameCategory.FREE_FOR_ALL) &&
+      !gt.isArchived,
   );
 
   return (
@@ -72,7 +75,7 @@ export default async function NewEventTournamentPage({ params }: Props) {
       </div>
       <CreateEventTournamentForm
         eventId={eventId}
-        gameTypes={h2hGameTypes.map((gt) => ({
+        gameTypes={tournamentGameTypes.map((gt) => ({
           id: gt.id,
           name: gt.name,
           category: gt.category,

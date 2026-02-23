@@ -1040,6 +1040,7 @@ export const tournamentStatusEnum = pgEnum("tournament_status", [
 export const tournamentTypeEnum = pgEnum("tournament_type", [
   TournamentType.SINGLE_ELIMINATION,
   TournamentType.SWISS,
+  TournamentType.FFA_GROUP_STAGE,
 ]);
 
 export const seedingTypeEnum = pgEnum("seeding_type", [
@@ -1878,6 +1879,7 @@ export const eventTournament = pgTable(
     bestOf: integer("best_of").notNull().default(1),
     roundBestOf: text("round_best_of"),
     placementPointConfig: text("placement_point_config"),
+    roundConfig: text("round_config"),
     totalRounds: integer("total_rounds"),
     startDate: timestamp("start_date"),
     completedAt: timestamp("completed_at"),
@@ -2021,6 +2023,80 @@ export type EventTournamentParticipantMember = InferSelectModel<
 >;
 export type NewEventTournamentParticipantMember = InferInsertModel<
   typeof eventTournamentParticipantMember
+>;
+
+export const eventTournamentGroup = pgTable(
+  "event_tournament_group",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    eventTournamentId: text("event_tournament_id")
+      .notNull()
+      .references(() => eventTournament.id, { onDelete: "cascade" }),
+    round: integer("round").notNull(),
+    position: integer("position").notNull(),
+    advanceCount: integer("advance_count").notNull(),
+    eventMatchId: text("event_match_id").references(() => eventMatch.id, {
+      onDelete: "set null",
+    }),
+    isCompleted: boolean("is_completed").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("event_tg_tournament_idx").on(table.eventTournamentId),
+    index("event_tg_round_idx").on(table.eventTournamentId, table.round),
+    unique("event_tg_unique").on(
+      table.eventTournamentId,
+      table.round,
+      table.position,
+    ),
+  ],
+);
+
+export type EventTournamentGroup = InferSelectModel<
+  typeof eventTournamentGroup
+>;
+export type NewEventTournamentGroup = InferInsertModel<
+  typeof eventTournamentGroup
+>;
+
+export const eventTournamentGroupParticipant = pgTable(
+  "event_tournament_group_participant",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    eventTournamentGroupId: text("event_tournament_group_id")
+      .notNull()
+      .references(() => eventTournamentGroup.id, { onDelete: "cascade" }),
+    eventTournamentParticipantId: text("event_tournament_participant_id")
+      .notNull()
+      .references(() => eventTournamentParticipant.id, { onDelete: "cascade" }),
+    rank: integer("rank"),
+    score: real("score"),
+    advanced: boolean("advanced").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("event_tgp_group_idx").on(table.eventTournamentGroupId),
+    index("event_tgp_participant_idx").on(table.eventTournamentParticipantId),
+    unique("event_tgp_unique").on(
+      table.eventTournamentGroupId,
+      table.eventTournamentParticipantId,
+    ),
+  ],
+);
+
+export type EventTournamentGroupParticipant = InferSelectModel<
+  typeof eventTournamentGroupParticipant
+>;
+export type NewEventTournamentGroupParticipant = InferInsertModel<
+  typeof eventTournamentGroupParticipant
 >;
 
 // Event relations
@@ -2460,4 +2536,9 @@ export const eventTournamentParticipantMemberColumns = getTableColumns(
 );
 export const eventPointEntryParticipantColumns = getTableColumns(
   eventPointEntryParticipant,
+);
+export const eventTournamentGroupColumns =
+  getTableColumns(eventTournamentGroup);
+export const eventTournamentGroupParticipantColumns = getTableColumns(
+  eventTournamentGroupParticipant,
 );

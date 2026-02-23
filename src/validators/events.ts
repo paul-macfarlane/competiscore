@@ -18,8 +18,10 @@ import {
   MAX_BEST_OF,
   MAX_DISCRETIONARY_AWARD_RECIPIENTS,
   MAX_EVENT_TEAM_NAME_MAX_LENGTH,
+  MAX_FFA_GROUP_SIZE,
   MAX_SWISS_ROUNDS,
   MAX_TOURNAMENT_PARTICIPANTS,
+  MIN_FFA_GROUP_SIZE,
   MIN_SWISS_ROUNDS,
   NAME_MAX_LENGTH,
   RULES_MAX_LENGTH,
@@ -656,6 +658,29 @@ export const roundBestOfSchema = z
 
 export type RoundBestOfConfig = z.infer<typeof roundBestOfSchema>;
 
+// FFA round config
+export const ffaRoundConfigEntrySchema = z.object({
+  groupSize: z
+    .number()
+    .int()
+    .min(
+      MIN_FFA_GROUP_SIZE,
+      `Group size must be at least ${MIN_FFA_GROUP_SIZE}`,
+    )
+    .max(
+      MAX_FFA_GROUP_SIZE,
+      `Group size must be at most ${MAX_FFA_GROUP_SIZE}`,
+    ),
+  advanceCount: z.number().int().min(0),
+});
+
+export const ffaRoundConfigSchema = z.record(
+  z.string().regex(/^\d+$/, "Round key must be a number"),
+  ffaRoundConfigEntrySchema,
+);
+
+export type FFARoundConfigInput = z.infer<typeof ffaRoundConfigSchema>;
+
 // Event tournament
 export const createEventTournamentSchema = z.object({
   eventId: uuidSchema,
@@ -676,7 +701,11 @@ export const createEventTournamentSchema = z.object({
     .optional(),
   logo: z.string().optional(),
   tournamentType: z
-    .enum([TournamentType.SINGLE_ELIMINATION, TournamentType.SWISS])
+    .enum([
+      TournamentType.SINGLE_ELIMINATION,
+      TournamentType.SWISS,
+      TournamentType.FFA_GROUP_STAGE,
+    ])
     .default(TournamentType.SINGLE_ELIMINATION),
   participantType: z
     .enum([ParticipantType.INDIVIDUAL, ParticipantType.TEAM])
@@ -690,6 +719,7 @@ export const createEventTournamentSchema = z.object({
     .min(MIN_SWISS_ROUNDS)
     .max(MAX_SWISS_ROUNDS)
     .optional(),
+  roundConfig: ffaRoundConfigSchema.optional(),
   placementPointConfig: placementPointConfigSchema.optional(),
 });
 
@@ -715,7 +745,11 @@ export const updateEventTournamentSchema = z.object({
     .optional(),
   logo: z.string().optional(),
   tournamentType: z
-    .enum([TournamentType.SINGLE_ELIMINATION, TournamentType.SWISS])
+    .enum([
+      TournamentType.SINGLE_ELIMINATION,
+      TournamentType.SWISS,
+      TournamentType.FFA_GROUP_STAGE,
+    ])
     .optional(),
   seedingType: z.enum(["manual", "random"]).optional(),
   swissRounds: z
@@ -726,6 +760,7 @@ export const updateEventTournamentSchema = z.object({
     .optional(),
   bestOf: bestOfValueSchema.optional(),
   roundBestOf: roundBestOfSchema,
+  roundConfig: ffaRoundConfigSchema.optional(),
   placementPointConfig: placementPointConfigSchema.optional(),
   startDate: z
     .union([z.string(), z.date()])
@@ -845,6 +880,86 @@ export const recordEventTournamentMatchResultSchema = z.object({
 
 export type RecordEventTournamentMatchResultInput = z.infer<
   typeof recordEventTournamentMatchResultSchema
+>;
+
+// FFA Group Stage schemas
+export const recordFFAGroupResultSchema = z.object({
+  groupId: uuidSchema,
+  playedAt: z
+    .union([z.string(), z.date()])
+    .pipe(z.coerce.date())
+    .refine((date) => date <= new Date(), {
+      message: "Match date cannot be in the future",
+    }),
+  results: z
+    .array(
+      z.object({
+        participantId: uuidSchema,
+        rank: z.number().int().min(1).optional(),
+        score: z.number().optional(),
+      }),
+    )
+    .min(2, "At least 2 participant results are required"),
+});
+
+export type RecordFFAGroupResultInput = z.infer<
+  typeof recordFFAGroupResultSchema
+>;
+
+export const undoFFAGroupResultSchema = z.object({
+  groupId: uuidSchema,
+});
+
+export type UndoFFAGroupResultInput = z.infer<typeof undoFFAGroupResultSchema>;
+
+// FFA Group assignment editing
+export const updateFFAGroupAssignmentsSchema = z.object({
+  eventTournamentId: uuidSchema,
+  round: z.number().int().min(1),
+  groups: z
+    .array(
+      z.object({
+        groupId: uuidSchema,
+        participantIds: z.array(uuidSchema).min(1),
+      }),
+    )
+    .min(1),
+});
+
+export type UpdateFFAGroupAssignmentsInput = z.infer<
+  typeof updateFFAGroupAssignmentsSchema
+>;
+
+// Manual FFA Group Setup (from DRAFT, no existing groups)
+export const manualFFAGroupSetupSchema = z.object({
+  eventTournamentId: uuidSchema,
+  groups: z
+    .array(
+      z.object({
+        participantIds: z.array(uuidSchema).min(1),
+      }),
+    )
+    .min(1),
+});
+
+export type ManualFFAGroupSetupInput = z.infer<
+  typeof manualFFAGroupSetupSchema
+>;
+
+// Manual Swiss Round 1 Setup (from DRAFT, no existing matches)
+export const manualSwissRound1SetupSchema = z.object({
+  eventTournamentId: uuidSchema,
+  pairings: z.array(
+    z.object({
+      participant1Id: uuidSchema,
+      participant2Id: uuidSchema.nullable(),
+      isBye: z.boolean(),
+    }),
+  ),
+});
+
+export type ManualSwissRound1SetupInput = z.infer<
+  typeof manualSwissRound1SetupSchema
 >;
 
 export const forfeitEventTournamentMatchSchema = z.object({

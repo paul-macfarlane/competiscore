@@ -31,14 +31,17 @@ import {
 } from "@/lib/shared/constants";
 import {
   MAX_BEST_OF,
+  MAX_FFA_GROUP_SIZE,
+  MAX_FFA_TOURNAMENT_ROUNDS,
   MAX_SWISS_ROUNDS,
+  MIN_FFA_GROUP_SIZE,
   MIN_SWISS_ROUNDS,
   TOURNAMENT_DESCRIPTION_MAX_LENGTH,
   TOURNAMENT_NAME_MAX_LENGTH,
 } from "@/services/constants";
 import { updateEventTournamentSchema } from "@/validators/events";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Trophy } from "lucide-react";
+import { Minus, Plus, Trash2, Trophy } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -57,6 +60,7 @@ const editFormSchema = updateEventTournamentSchema.pick({
   swissRounds: true,
   bestOf: true,
   roundBestOf: true,
+  roundConfig: true,
   placementPointConfig: true,
 });
 
@@ -74,6 +78,7 @@ type EditEventTournamentFormProps = {
   totalRounds: number | null;
   bestOf: number;
   roundBestOf: string | null;
+  roundConfig: string | null;
   placementPointConfig: string | null;
 };
 
@@ -89,6 +94,7 @@ export function EditEventTournamentForm({
   totalRounds,
   bestOf,
   roundBestOf,
+  roundConfig,
   placementPointConfig,
 }: EditEventTournamentFormProps) {
   const router = useRouter();
@@ -110,6 +116,18 @@ export function EditEventTournamentForm({
         bestOf: String(bo),
       }))
     : [];
+
+  const parsedRoundConfig = (() => {
+    if (!roundConfig) return undefined;
+    try {
+      return JSON.parse(roundConfig) as Record<
+        string,
+        { groupSize: number; advanceCount: number }
+      >;
+    } catch {
+      return undefined;
+    }
+  })();
 
   const parsedPlacementPoints = (() => {
     if (!placementPointConfig) return [];
@@ -138,6 +156,14 @@ export function EditEventTournamentForm({
       swissRounds: totalRounds ?? undefined,
       bestOf,
       roundBestOf: parsedRoundBestOf,
+      roundConfig:
+        parsedRoundConfig ??
+        (tournamentType === TournamentType.FFA_GROUP_STAGE
+          ? {
+              "1": { groupSize: 4, advanceCount: 1 },
+              "2": { groupSize: 4, advanceCount: 0 },
+            }
+          : undefined),
       placementPointConfig: parsedPlacementPoints,
     },
     mode: "onChange",
@@ -150,6 +176,8 @@ export function EditEventTournamentForm({
 
   const watchedTournamentType = form.watch("tournamentType");
   const isSwiss = watchedTournamentType === TournamentType.SWISS;
+  const isFFAGroupStage =
+    watchedTournamentType === TournamentType.FFA_GROUP_STAGE;
 
   const updateRoundBestOfValue = (
     overrides: { round: string; bestOf: string }[],
@@ -324,7 +352,7 @@ export function EditEventTournamentForm({
           />
         )}
 
-        {isDraft && !isSwiss && (
+        {isDraft && !isSwiss && !isFFAGroupStage && (
           <FormField
             control={form.control}
             name="seedingType"
@@ -394,7 +422,9 @@ export function EditEventTournamentForm({
           />
         )}
 
-        {isDraft && !isSwiss && (
+        {isDraft && isFFAGroupStage && <EditFFARoundConfigEditor form={form} />}
+
+        {isDraft && !isSwiss && !isFFAGroupStage && (
           <div className="space-y-4">
             <FormField
               control={form.control}
@@ -648,5 +678,164 @@ export function EditEventTournamentForm({
         </div>
       </form>
     </Form>
+  );
+}
+
+function EditFFARoundConfigEditor({
+  form,
+}: {
+  form: ReturnType<typeof useForm<EditFormValues>>;
+}) {
+  const existingConfig = form.getValues("roundConfig");
+  const initialRounds = (() => {
+    if (existingConfig && typeof existingConfig === "object") {
+      const entries = Object.entries(existingConfig).sort(
+        ([a], [b]) => Number(a) - Number(b),
+      );
+      if (entries.length > 0) {
+        return entries.map(([, v]) => ({
+          groupSize: String(v.groupSize),
+          advanceCount: String(v.advanceCount),
+        }));
+      }
+    }
+    return [
+      { groupSize: "4", advanceCount: "1" },
+      { groupSize: "4", advanceCount: "0" },
+    ];
+  })();
+
+  const [rounds, setRounds] =
+    useState<{ groupSize: string; advanceCount: string }[]>(initialRounds);
+
+  const updateFormRoundConfig = (
+    updated: { groupSize: string; advanceCount: string }[],
+  ) => {
+    const config: Record<string, { groupSize: number; advanceCount: number }> =
+      {};
+    for (let i = 0; i < updated.length; i++) {
+      const gs = parseInt(updated[i].groupSize, 10);
+      const ac = parseInt(updated[i].advanceCount, 10);
+      if (!isNaN(gs) && !isNaN(ac)) {
+        config[String(i + 1)] = { groupSize: gs, advanceCount: ac };
+      }
+    }
+    form.setValue(
+      "roundConfig",
+      Object.keys(config).length > 0 ? config : undefined,
+    );
+  };
+
+  const addRound = () => {
+    const updated = [...rounds];
+    if (updated.length > 0) {
+      updated[updated.length - 1] = {
+        ...updated[updated.length - 1],
+        advanceCount: "1",
+      };
+    }
+    updated.push({ groupSize: "4", advanceCount: "0" });
+    setRounds(updated);
+    updateFormRoundConfig(updated);
+  };
+
+  const removeRound = () => {
+    if (rounds.length <= 1) return;
+    const updated = rounds.slice(0, -1);
+    updated[updated.length - 1] = {
+      ...updated[updated.length - 1],
+      advanceCount: "0",
+    };
+    setRounds(updated);
+    updateFormRoundConfig(updated);
+  };
+
+  return (
+    <div className="space-y-4 rounded-lg border p-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium">Round Configuration</h4>
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={removeRound}
+            disabled={rounds.length <= 1}
+          >
+            <Minus className="mr-1 h-3 w-3" />
+            Remove Round
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addRound}
+            disabled={rounds.length >= MAX_FFA_TOURNAMENT_ROUNDS}
+          >
+            <Plus className="mr-1 h-3 w-3" />
+            Add Round
+          </Button>
+        </div>
+      </div>
+
+      {rounds.map((round, index) => {
+        const isFinal = index === rounds.length - 1;
+        return (
+          <div key={index} className="flex items-end gap-3">
+            <div className="w-24 shrink-0 pb-2 text-sm font-medium">
+              {isFinal ? "Final" : `Round ${index + 1}`}
+            </div>
+            <div className="flex-1">
+              {index === 0 && (
+                <label className="text-sm font-medium">Group Size</label>
+              )}
+              <Input
+                type="number"
+                min={MIN_FFA_GROUP_SIZE}
+                max={MAX_FFA_GROUP_SIZE}
+                step={1}
+                value={round.groupSize}
+                onChange={(e) => {
+                  const updated = [...rounds];
+                  updated[index] = {
+                    ...updated[index],
+                    groupSize: e.target.value,
+                  };
+                  setRounds(updated);
+                  updateFormRoundConfig(updated);
+                }}
+              />
+            </div>
+            <div className="flex-1">
+              {index === 0 && (
+                <label className="text-sm font-medium">Advance Count</label>
+              )}
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={isFinal ? "0" : round.advanceCount}
+                disabled={isFinal}
+                onChange={(e) => {
+                  if (isFinal) return;
+                  const updated = [...rounds];
+                  updated[index] = {
+                    ...updated[index],
+                    advanceCount: e.target.value,
+                  };
+                  setRounds(updated);
+                  updateFormRoundConfig(updated);
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      <p className="text-muted-foreground text-xs">
+        Configure the group size and how many advance from each group per round.
+        The final round advance count is always 0.
+      </p>
+    </div>
   );
 }

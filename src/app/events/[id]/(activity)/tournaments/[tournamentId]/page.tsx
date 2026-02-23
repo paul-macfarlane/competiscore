@@ -24,6 +24,7 @@ import {
 import {
   getPartnershipSize,
   isPartnershipGameType,
+  parseFFAConfig,
   parseH2HConfig,
 } from "@/lib/shared/game-config-parser";
 import {
@@ -44,9 +45,12 @@ import { notFound, redirect } from "next/navigation";
 
 import { DeleteEventTournamentDialog } from "./delete-event-tournament-dialog";
 import { DraftEventActions } from "./draft-event-actions";
+import { EventFFAGroupStageView } from "./event-ffa-group-stage-view";
 import { EventSwissTournamentView } from "./event-swiss-tournament-view";
 import { EventTournamentBracketView } from "./event-tournament-bracket-view";
 import { ManageEventTournamentParticipants } from "./manage-event-tournament-participants";
+import { ManualFFAGroupSetupDialog } from "./manual-ffa-group-setup-dialog";
+import { ManualSwissPairingSetupDialog } from "./manual-swiss-pairing-setup-dialog";
 import { RevertToDraftDialog } from "./revert-to-draft-dialog";
 
 function getOrdinal(n: number): string {
@@ -117,9 +121,11 @@ export default async function EventTournamentDetailPage({ params }: Props) {
   if (!tournamentResult.data) notFound();
 
   const tournament = tournamentResult.data;
-  const { participants, bracket } = tournament;
+  const { participants, bracket, groups } = tournament;
   const isTeamTournament = tournament.participantType === ParticipantType.TEAM;
   const isSwiss = tournament.tournamentType === TournamentType.SWISS;
+  const isFFAGroupStage =
+    tournament.tournamentType === TournamentType.FFA_GROUP_STAGE;
 
   const userParticipantIds = participants
     .filter((p) => {
@@ -129,20 +135,39 @@ export default async function EventTournamentDetailPage({ params }: Props) {
     })
     .map((p) => p.id);
   const isInProgress = tournament.status === TournamentStatus.IN_PROGRESS;
-  const hasMatchesPlayed =
-    bracket?.some(
-      (m) =>
-        !m.isBye &&
-        (m.winnerId !== null || m.isDraw || m.eventMatchId !== null),
-    ) ?? false;
+  const hasMatchesPlayed = isFFAGroupStage
+    ? groups.some((g) => g.isCompleted)
+    : (bracket?.some(
+        (m) =>
+          !m.isBye &&
+          (m.winnerId !== null || m.isDraw || m.eventMatchId !== null),
+      ) ?? false);
   const h2hConfig =
     tournament.gameType.category === GameCategory.HEAD_TO_HEAD
       ? parseH2HConfig(tournament.gameType.config)
+      : undefined;
+  const ffaConfig =
+    tournament.gameType.category === GameCategory.FREE_FOR_ALL
+      ? parseFFAConfig(tournament.gameType.config)
       : undefined;
   const partnershipSize =
     h2hConfig && isPartnershipGameType(h2hConfig)
       ? getPartnershipSize(h2hConfig)
       : undefined;
+  const ffaRoundConfig = (() => {
+    if (!isFFAGroupStage || !tournament.roundConfig) return null;
+    try {
+      return JSON.parse(tournament.roundConfig) as Record<
+        string,
+        { groupSize: number; advanceCount: number }
+      >;
+    } catch {
+      return null;
+    }
+  })();
+  const ffaTotalRounds = ffaRoundConfig
+    ? Object.keys(ffaRoundConfig).length
+    : 0;
 
   const participantOptions = await (async () => {
     if (!canManage) return [];
@@ -236,7 +261,37 @@ export default async function EventTournamentDetailPage({ params }: Props) {
                 </Link>
               </dd>
             </div>
-            {isSwiss ? (
+            {isFFAGroupStage && ffaRoundConfig ? (
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">Round Structure</dt>
+                <dd className="mt-1 flex flex-wrap gap-1.5">
+                  {Object.entries(ffaRoundConfig)
+                    .sort(([a], [b]) => Number(a) - Number(b))
+                    .map(([round, config]) => {
+                      const roundNum = Number(round);
+                      const isFinal = roundNum === ffaTotalRounds;
+                      return (
+                        <span
+                          key={round}
+                          className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs"
+                        >
+                          <span className="text-muted-foreground">
+                            {isFinal ? "Final" : `R${round}`}
+                          </span>
+                          <span className="font-medium">
+                            Groups of {config.groupSize}
+                          </span>
+                          {config.advanceCount > 0 && (
+                            <span className="text-muted-foreground">
+                              (top {config.advanceCount})
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
+                </dd>
+              </div>
+            ) : isSwiss ? (
               <div>
                 <dt className="text-muted-foreground">Rounds</dt>
                 <dd className="font-medium">
@@ -277,12 +332,14 @@ export default async function EventTournamentDetailPage({ params }: Props) {
               <dt className="text-muted-foreground">Participants</dt>
               <dd className="font-medium">{participants.length}</dd>
             </div>
-            <div>
-              <dt className="text-muted-foreground">Seeding</dt>
-              <dd className="font-medium capitalize">
-                {tournament.seedingType}
-              </dd>
-            </div>
+            {!isFFAGroupStage && (
+              <div>
+                <dt className="text-muted-foreground">Seeding</dt>
+                <dd className="font-medium capitalize">
+                  {tournament.seedingType}
+                </dd>
+              </div>
+            )}
             {tournament.placementPointConfig &&
               (() => {
                 let config: Array<{ placement: number; points: number }>;
@@ -496,53 +553,112 @@ export default async function EventTournamentDetailPage({ params }: Props) {
           </Card>
 
           {canManage && (
-            <DraftEventActions
-              tournamentId={tournamentId}
-              participantCount={participants.length}
-            />
+            <div className="flex flex-wrap gap-2">
+              <DraftEventActions
+                tournamentId={tournamentId}
+                participantCount={participants.length}
+                isFFAGroupStage={isFFAGroupStage}
+              />
+              {isFFAGroupStage &&
+                ffaRoundConfig?.["1"] &&
+                participants.length >= 2 && (
+                  <ManualFFAGroupSetupDialog
+                    tournamentId={tournamentId}
+                    participants={participants.map((p) => ({
+                      id: p.id,
+                      team: {
+                        id: p.team.id,
+                        name: p.team.name,
+                        logo: p.team.logo,
+                        color: p.team.color,
+                      },
+                      user: p.user,
+                      placeholderParticipant: p.placeholderParticipant,
+                      members: p.members,
+                    }))}
+                    groupCount={Math.floor(
+                      participants.length / ffaRoundConfig["1"].groupSize,
+                    )}
+                    groupSize={ffaRoundConfig["1"].groupSize}
+                    advanceCount={ffaRoundConfig["1"].advanceCount}
+                    isTeamTournament={isTeamTournament}
+                  />
+                )}
+              {isSwiss && participants.length >= 2 && (
+                <ManualSwissPairingSetupDialog
+                  tournamentId={tournamentId}
+                  participants={participants.map((p) => ({
+                    id: p.id,
+                    team: {
+                      id: p.team.id,
+                      name: p.team.name,
+                      logo: p.team.logo,
+                      color: p.team.color,
+                    },
+                    user: p.user,
+                    placeholderParticipant: p.placeholderParticipant,
+                    members: p.members,
+                  }))}
+                  isTeamTournament={isTeamTournament}
+                />
+              )}
+            </div>
           )}
         </>
       )}
 
       {(tournament.status === TournamentStatus.IN_PROGRESS ||
         tournament.status === TournamentStatus.COMPLETED) &&
-        bracket &&
-        bracket.length > 0 &&
-        (isSwiss ? (
-          <EventSwissTournamentView
-            bracket={bracket}
-            participants={participants}
-            totalRounds={tournament.totalRounds ?? 0}
+        (isFFAGroupStage && groups.length > 0 ? (
+          <EventFFAGroupStageView
+            eventTournamentId={tournamentId}
+            groups={groups}
+            totalRounds={ffaTotalRounds}
             canManage={canManage && isInProgress}
             userParticipantIds={isInProgress ? userParticipantIds : []}
-            eventId={eventId}
-            eventTournamentId={tournamentId}
             isTeamTournament={isTeamTournament}
             isCompleted={tournament.status === TournamentStatus.COMPLETED}
-            config={h2hConfig!}
-            hasMatchesPlayed={hasMatchesPlayed}
+            ffaConfig={ffaConfig!}
           />
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Bracket</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <EventTournamentBracketView
-                bracket={bracket}
-                totalRounds={tournament.totalRounds ?? 0}
-                canManage={canManage && isInProgress}
-                userParticipantIds={isInProgress ? userParticipantIds : []}
-                eventId={eventId}
-                tournamentId={tournamentId}
-                isTeamTournament={isTeamTournament}
-                config={h2hConfig}
-                bestOf={tournament.bestOf}
-                roundBestOf={tournament.roundBestOf}
-                hasMatchesPlayed={hasMatchesPlayed}
-              />
-            </CardContent>
-          </Card>
+          bracket &&
+          bracket.length > 0 &&
+          (isSwiss ? (
+            <EventSwissTournamentView
+              bracket={bracket}
+              participants={participants}
+              totalRounds={tournament.totalRounds ?? 0}
+              canManage={canManage && isInProgress}
+              userParticipantIds={isInProgress ? userParticipantIds : []}
+              eventId={eventId}
+              eventTournamentId={tournamentId}
+              isTeamTournament={isTeamTournament}
+              isCompleted={tournament.status === TournamentStatus.COMPLETED}
+              config={h2hConfig!}
+              hasMatchesPlayed={hasMatchesPlayed}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Bracket</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EventTournamentBracketView
+                  bracket={bracket}
+                  totalRounds={tournament.totalRounds ?? 0}
+                  canManage={canManage && isInProgress}
+                  userParticipantIds={isInProgress ? userParticipantIds : []}
+                  eventId={eventId}
+                  tournamentId={tournamentId}
+                  isTeamTournament={isTeamTournament}
+                  config={h2hConfig}
+                  bestOf={tournament.bestOf}
+                  roundBestOf={tournament.roundBestOf}
+                  hasMatchesPlayed={hasMatchesPlayed}
+                />
+              </CardContent>
+            </Card>
+          ))
         ))}
     </div>
   );

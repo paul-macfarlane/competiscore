@@ -462,6 +462,7 @@ export const TOURNAMENT_STATUS_LABELS: Record<TournamentStatus, string> = {
 export const TournamentType = {
   SINGLE_ELIMINATION: "single_elimination",
   SWISS: "swiss",
+  FFA_GROUP_STAGE: "ffa_group_stage",
 } as const;
 
 export type TournamentType =
@@ -470,6 +471,7 @@ export type TournamentType =
 export const TOURNAMENT_TYPE_LABELS: Record<TournamentType, string> = {
   [TournamentType.SINGLE_ELIMINATION]: "Single Elimination",
   [TournamentType.SWISS]: "Swiss",
+  [TournamentType.FFA_GROUP_STAGE]: "FFA Group Stage",
 };
 
 export const SeedingType = {

@@ -11,13 +11,23 @@ import { generateEventBracketAction } from "../../../actions";
 type Props = {
   tournamentId: string;
   participantCount: number;
+  isFFAGroupStage?: boolean;
 };
 
-export function DraftEventActions({ tournamentId, participantCount }: Props) {
+export function DraftEventActions({
+  tournamentId,
+  participantCount,
+  isFFAGroupStage,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const handleGenerateBracket = () => {
+  const label = isFFAGroupStage ? "Generate Groups" : "Generate Bracket";
+  const successMessage = isFFAGroupStage
+    ? "Groups generated!"
+    : "Bracket generated!";
+
+  const handleGenerate = () => {
     startTransition(async () => {
       const result = await generateEventBracketAction({
         eventTournamentId: tournamentId,
@@ -25,21 +35,19 @@ export function DraftEventActions({ tournamentId, participantCount }: Props) {
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success("Bracket generated!");
+        toast.success(successMessage);
         router.refresh();
       }
     });
   };
 
   return (
-    <div className="flex gap-2">
-      <Button
-        onClick={handleGenerateBracket}
-        disabled={isPending || participantCount < 2}
-      >
-        <Brackets className="mr-1 h-4 w-4" />
-        {isPending ? "Generating..." : "Generate Bracket"}
-      </Button>
-    </div>
+    <Button
+      onClick={handleGenerate}
+      disabled={isPending || participantCount < 2}
+    >
+      <Brackets className="mr-1 h-4 w-4" />
+      {isPending ? "Generating..." : label}
+    </Button>
   );
 }

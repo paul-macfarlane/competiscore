@@ -30,6 +30,7 @@ List of miscellaneous TODOs for the project.
 - Event scoring for best scores should factor in a participant/pairing/team having multiple submissions. For example, if a person has the top 2, they only get awarded points for first, and then 3rd gets points for their placement in 2nd, and so on. This obviously applies to both participant types of individuals and teams.
 - Allow for an optional 3rd place match/set of matches. Set up at tournament configuration. This is actually not needed in the short term so we can defer this. Rounds with multiple numbers of games is needed short term.
 - Best score matches could be configurable such that you can say only allow X submissions per user. This applies to both events and leagues.
+- For paginated lists throughout the app, it would be nice if we could have the user change the page size between 10, 25, and 50 if they wanted to view long lists of people on 1 page.
 
 ### Small Tech Debt
 

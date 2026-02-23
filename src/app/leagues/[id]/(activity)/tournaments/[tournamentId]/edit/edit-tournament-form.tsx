@@ -106,7 +106,8 @@ export function EditTournamentForm({
       name,
       description: description || "",
       logo: logo || undefined,
-      tournamentType: tournamentType as TournamentType,
+      tournamentType:
+        tournamentType as EditTournamentFormValues["tournamentType"],
       seedingType: seedingType as SeedingType,
       swissRounds: totalRounds ?? undefined,
       placementPointConfig: parsedPlacementPoints,

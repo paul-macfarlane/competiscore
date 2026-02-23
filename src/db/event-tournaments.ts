@@ -5,9 +5,13 @@ import { DBOrTx, db } from "./index";
 import {
   EventPlaceholderParticipant,
   EventTournament,
+  EventTournamentGroup,
+  EventTournamentGroupParticipant,
   EventTournamentParticipant,
   EventTournamentRoundMatch,
   NewEventTournament,
+  NewEventTournamentGroup,
+  NewEventTournamentGroupParticipant,
   NewEventTournamentParticipant,
   NewEventTournamentParticipantMember,
   NewEventTournamentRoundMatch,
@@ -17,6 +21,8 @@ import {
   eventTeam,
   eventTournament,
   eventTournamentColumns,
+  eventTournamentGroup,
+  eventTournamentGroupParticipant,
   eventTournamentParticipant,
   eventTournamentParticipantColumns,
   eventTournamentParticipantMember,
@@ -184,6 +190,7 @@ export async function updateEventTournament(
       | "bestOf"
       | "placementPointConfig"
       | "roundBestOf"
+      | "roundConfig"
     >
   >,
   dbOrTx: DBOrTx = db,
@@ -783,4 +790,187 @@ export async function checkIndividualInEventTournamentPartnership(
     .where(and(...conditions, ...memberConditions));
 
   return result[0].count > 0;
+}
+
+// FFA Group Stage functions
+
+export async function createEventTournamentGroups(
+  groups: Omit<NewEventTournamentGroup, "id" | "createdAt" | "updatedAt">[],
+  dbOrTx: DBOrTx = db,
+): Promise<EventTournamentGroup[]> {
+  if (groups.length === 0) return [];
+  return await dbOrTx.insert(eventTournamentGroup).values(groups).returning();
+}
+
+export async function createEventTournamentGroupParticipants(
+  participants: Omit<NewEventTournamentGroupParticipant, "id" | "createdAt">[],
+  dbOrTx: DBOrTx = db,
+): Promise<EventTournamentGroupParticipant[]> {
+  if (participants.length === 0) return [];
+  return await dbOrTx
+    .insert(eventTournamentGroupParticipant)
+    .values(participants)
+    .returning();
+}
+
+export type EventTournamentGroupWithParticipants = EventTournamentGroup & {
+  participants: (EventTournamentGroupParticipant & {
+    tournamentParticipant: EventTournamentParticipantWithDetails;
+  })[];
+};
+
+export async function getEventTournamentGroupsWithParticipants(
+  tournamentId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<EventTournamentGroupWithParticipants[]> {
+  const groups = await dbOrTx
+    .select()
+    .from(eventTournamentGroup)
+    .where(eq(eventTournamentGroup.eventTournamentId, tournamentId))
+    .orderBy(eventTournamentGroup.round, eventTournamentGroup.position);
+
+  if (groups.length === 0) return [];
+
+  const groupIds = groups.map((g) => g.id);
+  const groupParticipantRows = await dbOrTx
+    .select()
+    .from(eventTournamentGroupParticipant)
+    .where(
+      inArray(eventTournamentGroupParticipant.eventTournamentGroupId, groupIds),
+    );
+
+  const tournamentParticipants = await getEventTournamentParticipants(
+    tournamentId,
+    dbOrTx,
+  );
+  const participantMap = new Map(tournamentParticipants.map((p) => [p.id, p]));
+
+  const groupParticipantsByGroup = new Map<
+    string,
+    (EventTournamentGroupParticipant & {
+      tournamentParticipant: EventTournamentParticipantWithDetails;
+    })[]
+  >();
+
+  for (const gp of groupParticipantRows) {
+    const tp = participantMap.get(gp.eventTournamentParticipantId);
+    if (!tp) continue;
+    const list = groupParticipantsByGroup.get(gp.eventTournamentGroupId) ?? [];
+    list.push({ ...gp, tournamentParticipant: tp });
+    groupParticipantsByGroup.set(gp.eventTournamentGroupId, list);
+  }
+
+  return groups.map((g) => ({
+    ...g,
+    participants: groupParticipantsByGroup.get(g.id) ?? [],
+  }));
+}
+
+export async function getEventTournamentGroupsByRound(
+  tournamentId: string,
+  round: number,
+  dbOrTx: DBOrTx = db,
+): Promise<EventTournamentGroup[]> {
+  return dbOrTx
+    .select()
+    .from(eventTournamentGroup)
+    .where(
+      and(
+        eq(eventTournamentGroup.eventTournamentId, tournamentId),
+        eq(eventTournamentGroup.round, round),
+      ),
+    )
+    .orderBy(eventTournamentGroup.position);
+}
+
+export async function getEventTournamentGroupById(
+  groupId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<EventTournamentGroup | undefined> {
+  const result = await dbOrTx
+    .select()
+    .from(eventTournamentGroup)
+    .where(eq(eventTournamentGroup.id, groupId))
+    .limit(1);
+  return result[0];
+}
+
+export async function updateEventTournamentGroup(
+  groupId: string,
+  data: Partial<Pick<EventTournamentGroup, "eventMatchId" | "isCompleted">>,
+  dbOrTx: DBOrTx = db,
+): Promise<EventTournamentGroup | undefined> {
+  const result = await dbOrTx
+    .update(eventTournamentGroup)
+    .set(data)
+    .where(eq(eventTournamentGroup.id, groupId))
+    .returning();
+  return result[0];
+}
+
+export async function bulkUpdateGroupParticipants(
+  updates: {
+    id: string;
+    rank?: number | null;
+    score?: number | null;
+    advanced?: boolean;
+  }[],
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  for (const update of updates) {
+    const data: Partial<EventTournamentGroupParticipant> = {};
+    if (update.rank !== undefined) data.rank = update.rank;
+    if (update.score !== undefined) data.score = update.score;
+    if (update.advanced !== undefined) data.advanced = update.advanced;
+    await dbOrTx
+      .update(eventTournamentGroupParticipant)
+      .set(data)
+      .where(eq(eventTournamentGroupParticipant.id, update.id));
+  }
+}
+
+export async function getEventTournamentGroupParticipants(
+  groupId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<EventTournamentGroupParticipant[]> {
+  return dbOrTx
+    .select()
+    .from(eventTournamentGroupParticipant)
+    .where(eq(eventTournamentGroupParticipant.eventTournamentGroupId, groupId));
+}
+
+export async function deleteGroupParticipantsByGroupIds(
+  groupIds: string[],
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  if (groupIds.length === 0) return;
+  await dbOrTx
+    .delete(eventTournamentGroupParticipant)
+    .where(
+      inArray(eventTournamentGroupParticipant.eventTournamentGroupId, groupIds),
+    );
+}
+
+export async function deleteEventTournamentGroupsByRound(
+  tournamentId: string,
+  round: number,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .delete(eventTournamentGroup)
+    .where(
+      and(
+        eq(eventTournamentGroup.eventTournamentId, tournamentId),
+        eq(eventTournamentGroup.round, round),
+      ),
+    );
+}
+
+export async function deleteAllEventTournamentGroups(
+  tournamentId: string,
+  dbOrTx: DBOrTx = db,
+): Promise<void> {
+  await dbOrTx
+    .delete(eventTournamentGroup)
+    .where(eq(eventTournamentGroup.eventTournamentId, tournamentId));
 }

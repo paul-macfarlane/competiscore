@@ -40,6 +40,9 @@ export const MAX_TOURNAMENTS_PER_LEAGUE = 20;
 export const MAX_BEST_OF = 9;
 export const MIN_SWISS_ROUNDS = 2;
 export const MAX_SWISS_ROUNDS = 20;
+export const MAX_FFA_TOURNAMENT_ROUNDS = 10;
+export const MIN_FFA_GROUP_SIZE = 2;
+export const MAX_FFA_GROUP_SIZE = 20;
 
 export const EVENT_NAME_MAX_LENGTH = 100;
 export const EVENT_DESCRIPTION_MAX_LENGTH = 500;

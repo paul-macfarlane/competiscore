@@ -337,7 +337,7 @@ describe("createEventTournament", () => {
     expect(result.error).toBe("Game type not found in this event");
   });
 
-  it("returns error when game type is not H2H", async () => {
+  it("returns error when game type is not H2H for SE/Swiss tournaments", async () => {
     mockOrganizerMember();
     mockH2HGameType({ category: "free_for_all" });
     const result = await createEventTournament(TEST_IDS.USER_ID, {
@@ -347,7 +347,7 @@ describe("createEventTournament", () => {
       seedingType: "random",
     });
     expect(result.error).toBe(
-      "Tournaments are only supported for head-to-head game types",
+      "Single Elimination and Swiss tournaments require a head-to-head game type",
     );
   });
 

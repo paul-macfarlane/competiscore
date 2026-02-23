@@ -338,16 +338,17 @@ Tournaments are structured bracket competitions using any game type as the match
 
 - **Single Elimination:** Standard bracket where losers are eliminated. Supports bye handling for non-power-of-2 participant counts.
 - **Swiss:** Non-elimination format where participants play a fixed number of rounds against opponents with similar scores. Standings based on Swiss points (Win=1, Draw=0.5, Loss=0) with Buchholz tiebreaking. Round 1 paired alphabetically; subsequent rounds paired by standings. Round count defaults to ⌈log₂(N)⌉ but can be overridden by the organizer.
-- **Group Play → Single Elimination:** Participants are divided into groups for a round-robin phase. Top finishers from each group advance to a single elimination bracket. _(Future)_
+- **FFA Group Stage:** Multi-round group-based tournament for Free-for-All game types. Participants are divided into groups of a configured size, play FFA matches within their group, and the top finishers from each group advance to the next round. Each round has its own group size and advance count. The final round determines the overall winner. Supports configurable multi-round structures (e.g., 16 players → 4 groups of 4, top 2 advance → 2 groups of 4, winner of each → final group of 2). Groups are auto-generated via random seeding with snake-draft distribution, or organizers can manually assign participants to groups.
 - **Series:** A best-of-X series between two participants (individuals or teams), such as best of 3, best of 5, or best of 7. The first participant to win the majority of games wins the series. _(Future)_
 
-_Future: Round Robin (standalone), Double Elimination_
+_Future: Round Robin (standalone), Double Elimination, Group Play → Single Elimination (round-robin groups into bracket)_
 
 ### 7.3 Tournament Configuration
 
 - Name and optional logo
-- Tournament type: Single Elimination, Swiss, Group Play → Single Elimination _(Future)_, Series _(Future)_
-- Match format: Default best-of-X for all rounds (e.g., best of 1, best of 3, best of 5), with optional per-round overrides (e.g., Round 1 = Bo1, Semifinals = Bo3, Finals = Bo5) — applies to Single Elimination and Group Play types. Best-of values must be odd numbers (1, 3, 5, 7, 9).
+- Tournament type: Single Elimination, Swiss, FFA Group Stage, Series _(Future)_
+- Match format: Default best-of-X for all rounds (e.g., best of 1, best of 3, best of 5), with optional per-round overrides (e.g., Round 1 = Bo1, Semifinals = Bo3, Finals = Bo5) — applies to Single Elimination types. Best-of values must be odd numbers (1, 3, 5, 7, 9).
+- Round configuration (FFA Group Stage only): Per-round group size and advance count. Participants must divide evenly into groups for each round. Final round advance count must be 0.
 - Variation: Single game type for all rounds, or different game types per round
 - Participant type: Individuals or Teams
 - Seeding: Manual or Random
@@ -357,7 +358,7 @@ _Future: ELO-based seeding_
 
 ### 7.4 Tournament Formats
 
-**Single Elimination** and **Swiss** are the currently supported formats. Single elimination uses a standard bracket where losers are eliminated, with bye handling for non-power-of-2 participant counts. Swiss is a non-elimination format where all participants play every round, paired against opponents with similar records.
+**Single Elimination**, **Swiss**, and **FFA Group Stage** are the currently supported formats. Single elimination uses a standard bracket where losers are eliminated, with bye handling for non-power-of-2 participant counts. Swiss is a non-elimination format where all participants play every round, paired against opponents with similar records. FFA Group Stage divides participants into groups for multi-round Free-for-All competition with configurable advancement.
 
 ### 7.5 Tournament Operations
 
@@ -565,7 +566,7 @@ Invite links handle the same scenarios as league invite links (authenticated, no
 
 ### 8.16 Event Tournaments
 
-Events support single elimination and Swiss tournaments with individual participants (representing their teams). Tournament matches earn points for the event leaderboard. Optional placement point config awards bonus points when the tournament completes.
+Events support single elimination, Swiss, and FFA Group Stage tournaments with individual participants (representing their teams). Tournament matches earn points for the event leaderboard. Optional placement point config awards bonus points when the tournament completes.
 
 **Best-of Series:** Each tournament round can have its own best-of setting (e.g., early rounds Bo1, semifinals Bo3, finals Bo5). Individual games within a series are tracked, and a winner is automatically determined when one side reaches the win threshold (e.g., 2 wins in a Bo3). A default best-of applies to all rounds, with optional per-round overrides configurable during the draft phase.
 
@@ -578,6 +579,17 @@ Events support single elimination and Swiss tournaments with individual particip
 - **Edit Pairings:** Before any matches are recorded in a round, organizers can manually adjust pairings by swapping participants between matchups (e.g., to avoid same-team matchups the algorithm can't detect). Uses a click-to-swap interaction — click one participant to select, click another to swap their positions. Participants can be swapped into or out of bye slots.
 - **Delete Round:** Organizers can delete the current round if no matches have been recorded, returning to the previous round. This allows organizers to undo match results from the previous round and regenerate pairings. Round 1 cannot be deleted.
 - **Generate Next Round:** When all matches in the current round are resolved but the next round hasn't been auto-generated (e.g., after deleting a round and the previous round was already complete), organizers can manually trigger next round generation.
+
+**FFA Group Stage Management:** Organizers have additional controls for FFA Group Stage tournaments:
+
+- **Record Group Results:** Each group match is an FFA match where participants are ranked (with optional scores). When all groups in a round are completed, the top finishers (based on advance count) automatically advance to the next round's groups.
+- **Undo Group Results:** Results for a completed group can be undone, returning participants to their pre-result state. Undo is blocked if any subsequent round groups have already been completed.
+- **Edit Groups:** Before any groups in a round are completed, organizers can reassign participants between groups using a click-to-swap interaction.
+
+**Manual Tournament Setup (FFA Group Stage & Swiss):** As an alternative to auto-generation, organizers can manually set up tournaments from the DRAFT state:
+
+- **FFA Manual Group Setup:** Instead of random seeding + auto-distribution, organizers can assign participants to groups one by one from an unassigned pool. Click a participant to select, then click a group slot to assign. Participants can be swapped between groups or moved back to the pool. The tournament starts when all participants are assigned.
+- **Swiss Manual Round 1 Pairings:** Instead of alphabetical auto-pairing, organizers can manually pair participants for round 1. Click two participants to pair them. For odd participant counts, one participant can be assigned a bye. The tournament starts when all participants are paired.
 
 _Future: Tournament match editing (modify results in-place without undo)._
 
@@ -822,7 +834,8 @@ When `/dashboard` returns, it should show cross-league personal data:
 5. ~~Team-based tournament support (individuals on teams for multi-player game types)~~
 6. ~~Swiss-style tournaments (non-elimination, points-based standings with Buchholz tiebreaking)~~
 7. ~~Tournament deletion regardless of status with match/score cleanup~~
-8. _Future: Group Play → Single Elimination, Series, Round Robin, Double Elimination, optional 3rd place match_
+8. ~~FFA Group Stage tournaments (multi-round group-based FFA with configurable group sizes and advancement)~~
+9. _Future: Series, Round Robin, Double Elimination, Group Play → Single Elimination, optional 3rd place match_
 
 ### Phase 4: Enhanced Stats & Records
 
@@ -843,23 +856,25 @@ When `/dashboard` returns, it should show cross-league personal data:
 6. ~~Match and high score deletion with self-only restriction for participants~~
 7. ~~Per-activity point configuration (set at recording time), removed on delete~~
 8. ~~High score session flow (open → submit → close with optional placement points)~~
-9. ~~Event tournaments (single elimination and Swiss, individual participants representing teams)~~
-10. ~~Tournament match undo with downstream bracket protection (Swiss: current round only)~~
+9. ~~Event tournaments (single elimination, Swiss, and FFA Group Stage, individual participants representing teams)~~
+10. ~~Tournament match undo with downstream bracket protection (Swiss: current round only, FFA: blocked if next round completed)~~
 11. ~~Per-round best-of series configuration with individual game tracking~~
 12. ~~Swiss tournament management: edit pairings (swap-based), delete current round, manual next round generation~~
-13. ~~Event invitations (direct invite + invite links, private events only)~~
-14. ~~Placeholder member support~~
-15. ~~Top-level navigation (Events alongside Leagues in header)~~
-16. ~~Per-game-type individual leaderboards for high score game types~~
-17. ~~Discretionary points — organizers can award ad-hoc bonus/penalty points to teams~~
-18. ~~Event metrics dashboard — standings bar chart, points over time (clickable), team share pie chart, top contributors/category breakdown pie chart, scoring history log with detail links~~
-19. ~~Individual participant tracking on point entries for analytics attribution~~
-20. ~~Group/pair score submissions for event high score game types (`groupSize` > 1) — paired leaderboard display ("Name1 & Name2"), same-team enforcement, per-member point attribution~~
-21. ~~Group/pair entries for event FFA game types (`minGroupSize`/`maxGroupSize`) — grouped match recording, same-team enforcement, per-member point attribution, team badge display on match cards~~
+13. ~~FFA Group Stage management: record/undo group results, edit group assignments, multi-round advancement~~
+14. ~~Manual tournament setup: organizers can manually assign FFA groups or Swiss round 1 pairings instead of auto-generation~~
+15. ~~Event invitations (direct invite + invite links, private events only)~~
+16. ~~Placeholder member support~~
+17. ~~Top-level navigation (Events alongside Leagues in header)~~
+18. ~~Per-game-type individual leaderboards for high score game types~~
+19. ~~Discretionary points — organizers can award ad-hoc bonus/penalty points to teams~~
+20. ~~Event metrics dashboard — standings bar chart, points over time (clickable), team share pie chart, top contributors/category breakdown pie chart, scoring history log with detail links~~
+21. ~~Individual participant tracking on point entries for analytics attribution~~
+22. ~~Group/pair score submissions for event high score game types (`groupSize` > 1) — paired leaderboard display ("Name1 & Name2"), same-team enforcement, per-member point attribution~~
+23. ~~Group/pair entries for event FFA game types (`minGroupSize`/`maxGroupSize`) — grouped match recording, same-team enforcement, per-member point attribution, team badge display on match cards~~
 
 ### Post-MVP Features
 
-- Additional tournament types (Group Play → Single Elimination, Series, Round Robin, Double Elimination)
+- Additional tournament types (Series, Round Robin, Double Elimination, Group Play → Single Elimination)
 - ELO-based tournament seeding
 - Match dispute/confirmation system
 - Match result notifications

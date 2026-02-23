@@ -66,13 +66,18 @@ import {
   forfeitEventTournamentMatch,
   generateEventBracket,
   generateNextEventSwissRound,
+  manualFFAGroupSetup,
+  manualSwissRound1Setup,
   recordEventTournamentMatchResult,
+  recordFFAGroupResult,
   removeEventTournamentParticipant,
   reseedEventTournament,
   revertEventTournamentToDraft,
   setEventParticipantSeeds,
   undoEventTournamentMatchResult,
+  undoFFAGroupResult,
   updateEventTournament,
+  updateFFAGroupAssignments,
   updateSwissRoundPairings,
 } from "@/services/event-tournaments";
 import {
@@ -793,6 +798,77 @@ export async function revertEventTournamentToDraftAction(
   if (!userId) return { error: "Unauthorized" };
 
   const result = await revertEventTournamentToDraft(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+export async function recordFFAGroupResultAction(input: unknown): Promise<
+  ServiceResult<{
+    eventMatchId: string;
+    eventTournamentId: string;
+    eventId: string;
+  }>
+> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await recordFFAGroupResult(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+export async function updateFFAGroupAssignmentsAction(
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await updateFFAGroupAssignments(userId, input);
+  if (result.data) {
+    revalidatePath(
+      `/events/${result.data.eventId}/tournaments/${result.data.eventTournamentId}`,
+    );
+  }
+  return result;
+}
+
+export async function undoFFAGroupResultAction(
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await undoFFAGroupResult(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+export async function manualFFAGroupSetupAction(
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await manualFFAGroupSetup(userId, input);
+  if (result.data) {
+    revalidatePath(`/events/${result.data.eventId}`);
+  }
+  return result;
+}
+
+export async function manualSwissRound1SetupAction(
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const userId = await getSessionUserId();
+  if (!userId) return { error: "Unauthorized" };
+
+  const result = await manualSwissRound1Setup(userId, input);
   if (result.data) {
     revalidatePath(`/events/${result.data.eventId}`);
   }

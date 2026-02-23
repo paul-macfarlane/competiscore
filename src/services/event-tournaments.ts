@@ -1,21 +1,32 @@
 import {
+  EventTournamentGroupWithParticipants,
   EventTournamentParticipantWithDetails,
   EventTournamentRoundMatchWithDetails,
   EventTournamentWithDetails,
   addEventTournamentParticipant as dbAddParticipant,
   addEventTournamentParticipantMembers as dbAddParticipantMembers,
+  bulkUpdateGroupParticipants as dbBulkUpdateGroupParticipants,
   bulkUpdateEventParticipantSeeds as dbBulkUpdateSeeds,
   checkIndividualInEventTournamentPartnership as dbCheckIndividualInPartnership,
   checkIndividualInEventTournament as dbCheckIndividualInTournament,
   checkEventTournamentNameExists as dbCheckNameExists,
   countEventTournamentParticipants as dbCountParticipants,
   countEventTournamentsByEventId as dbCountTournaments,
+  createEventTournamentGroupParticipants as dbCreateGroupParticipants,
+  createEventTournamentGroups as dbCreateGroups,
   createEventTournamentRoundMatches as dbCreateRoundMatches,
   createEventTournament as dbCreateTournament,
+  deleteAllEventTournamentGroups as dbDeleteAllGroups,
   deleteAllEventTournamentRoundMatches as dbDeleteAllRoundMatches,
+  deleteGroupParticipantsByGroupIds as dbDeleteGroupParticipantsByGroupIds,
+  deleteEventTournamentGroupsByRound as dbDeleteGroupsByRound,
   deleteEventTournamentRoundMatchesByRound as dbDeleteRoundMatchesByRound,
   deleteEventTournament as dbDeleteTournament,
   getEventTournamentBracket as dbGetBracket,
+  getEventTournamentGroupById as dbGetGroupById,
+  getEventTournamentGroupParticipants as dbGetGroupParticipants,
+  getEventTournamentGroupsByRound as dbGetGroupsByRound,
+  getEventTournamentGroupsWithParticipants as dbGetGroupsWithParticipants,
   getEventTournamentParticipantById as dbGetParticipantById,
   getEventTournamentParticipantMembers as dbGetParticipantMembers,
   getEventTournamentParticipants as dbGetParticipants,
@@ -26,6 +37,7 @@ import {
   getEventTournamentsByEventId as dbGetTournamentsByEventId,
   removeEventTournamentParticipant as dbRemoveParticipant,
   resetAllEventTournamentParticipants as dbResetAllParticipants,
+  updateEventTournamentGroup as dbUpdateGroup,
   updateEventTournamentParticipant as dbUpdateParticipant,
   updateEventTournamentRoundMatch as dbUpdateRoundMatch,
   updateEventTournament as dbUpdateTournament,
@@ -63,8 +75,14 @@ import {
   TournamentType,
 } from "@/lib/shared/constants";
 import {
+  type FFARoundConfig,
+  distributeIntoGroups,
+  validateFFARoundConfig,
+} from "@/lib/shared/ffa-group-generator";
+import {
   getPartnershipSize,
   isPartnershipGameType,
+  parseFFAConfig,
   parseH2HConfig,
 } from "@/lib/shared/game-config-parser";
 import { EventAction, canPerformEventAction } from "@/lib/shared/permissions";
@@ -83,18 +101,25 @@ import {
   eventTournamentIdSchema,
   forfeitEventTournamentMatchSchema,
   generateEventBracketSchema,
+  manualFFAGroupSetupSchema,
+  manualSwissRound1SetupSchema,
   recordEventTournamentMatchResultSchema,
+  recordFFAGroupResultSchema,
   removeEventTournamentParticipantSchema,
   reseedEventTournamentSchema,
   setEventParticipantSeedsSchema,
   undoEventTournamentMatchResultSchema,
+  undoFFAGroupResultSchema,
   updateEventTournamentSchema,
+  updateFFAGroupAssignmentsSchema,
   updateSwissRoundPairingsSchema,
 } from "@/validators/events";
 
 import {
+  MAX_FFA_GROUP_SIZE,
   MAX_TOURNAMENTS_PER_LEAGUE,
   MAX_TOURNAMENT_PARTICIPANTS,
+  MIN_FFA_GROUP_SIZE,
   MIN_TOURNAMENT_PARTICIPANTS,
 } from "./constants";
 import { ServiceResult, formatZodErrors } from "./shared";
@@ -118,6 +143,7 @@ function getRoundBestOf(tournament: EventTournament, round: number): number {
 export type EventTournamentFullDetails = EventTournamentWithDetails & {
   bracket: EventTournamentRoundMatchWithDetails[];
   participants: EventTournamentParticipantWithDetails[];
+  groups: EventTournamentGroupWithParticipants[];
 };
 
 export async function createEventTournament(
@@ -154,10 +180,22 @@ export async function createEventTournament(
     return { error: "Cannot create a tournament with an archived game type" };
   }
 
-  if (gameType.category !== GameCategory.HEAD_TO_HEAD) {
-    return {
-      error: "Tournaments are only supported for head-to-head game types",
-    };
+  const isFFAGroupStage =
+    data.tournamentType === TournamentType.FFA_GROUP_STAGE;
+
+  if (isFFAGroupStage) {
+    if (gameType.category !== GameCategory.FREE_FOR_ALL) {
+      return {
+        error: "FFA Group Stage tournaments require a free-for-all game type",
+      };
+    }
+  } else {
+    if (gameType.category !== GameCategory.HEAD_TO_HEAD) {
+      return {
+        error:
+          "Single Elimination and Swiss tournaments require a head-to-head game type",
+      };
+    }
   }
 
   const nameExists = await dbCheckNameExists(data.eventId, data.name);
@@ -186,14 +224,20 @@ export async function createEventTournament(
     tournamentType: data.tournamentType,
     status: TournamentStatus.DRAFT,
     participantType: data.participantType,
-    seedingType: isSwiss
-      ? SeedingType.RANDOM
-      : (data.seedingType ?? SeedingType.RANDOM),
-    bestOf: isSwiss ? 1 : (data.bestOf ?? 1),
-    roundBestOf: isSwiss
-      ? null
-      : data.roundBestOf
-        ? JSON.stringify(data.roundBestOf)
+    seedingType:
+      isSwiss || isFFAGroupStage
+        ? SeedingType.RANDOM
+        : (data.seedingType ?? SeedingType.RANDOM),
+    bestOf: isSwiss || isFFAGroupStage ? 1 : (data.bestOf ?? 1),
+    roundBestOf:
+      isSwiss || isFFAGroupStage
+        ? null
+        : data.roundBestOf
+          ? JSON.stringify(data.roundBestOf)
+          : null,
+    roundConfig:
+      isFFAGroupStage && data.roundConfig
+        ? JSON.stringify(data.roundConfig)
         : null,
     placementPointConfig: data.placementPointConfig
       ? JSON.stringify(data.placementPointConfig)
@@ -255,6 +299,7 @@ export async function updateEventTournament(
     data.startDate !== undefined ||
     data.bestOf !== undefined ||
     data.roundBestOf !== undefined ||
+    data.roundConfig !== undefined ||
     data.tournamentType !== undefined ||
     data.placementPointConfig !== undefined ||
     data.swissRounds !== undefined;
@@ -321,6 +366,9 @@ export async function updateEventTournament(
       bestOf: data.bestOf,
       ...(data.roundBestOf !== undefined && {
         roundBestOf: data.roundBestOf ? JSON.stringify(data.roundBestOf) : null,
+      }),
+      ...(data.roundConfig !== undefined && {
+        roundConfig: data.roundConfig ? JSON.stringify(data.roundConfig) : null,
       }),
       placementPointConfig:
         data.placementPointConfig !== undefined
@@ -396,9 +444,15 @@ export async function getEventTournament(
     return { error: "You are not a participant in this event" };
   }
 
-  const [bracket, participants] = await Promise.all([
-    dbGetBracket(tournamentId),
+  const isFFAGroupStage =
+    tournamentData.tournamentType === TournamentType.FFA_GROUP_STAGE;
+
+  const [bracket, participants, groups] = await Promise.all([
+    isFFAGroupStage ? Promise.resolve([]) : dbGetBracket(tournamentId),
     dbGetParticipants(tournamentId),
+    isFFAGroupStage
+      ? dbGetGroupsWithParticipants(tournamentId)
+      : Promise.resolve([]),
   ]);
 
   return {
@@ -406,6 +460,7 @@ export async function getEventTournament(
       ...tournamentData,
       bracket,
       participants,
+      groups,
     },
   };
 }
@@ -879,8 +934,14 @@ export async function generateEventBracket(
   }
 
   const isSwiss = tournamentData.tournamentType === TournamentType.SWISS;
+  const isFFAGroupStage =
+    tournamentData.tournamentType === TournamentType.FFA_GROUP_STAGE;
 
-  if (!isSwiss && tournamentData.seedingType === SeedingType.MANUAL) {
+  if (
+    !isSwiss &&
+    !isFFAGroupStage &&
+    tournamentData.seedingType === SeedingType.MANUAL
+  ) {
     const allSeeded = participants.every((p) => p.seed !== null);
     if (!allSeeded) {
       return { error: "All participants must have seeds assigned" };
@@ -889,6 +950,14 @@ export async function generateEventBracket(
 
   if (isSwiss) {
     return generateEventSwissBracket(
+      eventTournamentId,
+      tournamentData,
+      participants,
+    );
+  }
+
+  if (isFFAGroupStage) {
+    return generateFFAGroupStage(
       eventTournamentId,
       tournamentData,
       participants,
@@ -2845,6 +2914,36 @@ export async function revertEventTournamentToDraft(
     return { error: "You do not have permission to manage tournaments" };
   }
 
+  const isFFAGroupStage =
+    tournamentData.tournamentType === TournamentType.FFA_GROUP_STAGE;
+
+  if (isFFAGroupStage) {
+    const groups = await dbGetGroupsWithParticipants(eventTournamentId);
+    const hasCompletedGroups = groups.some((g) => g.isCompleted);
+    if (hasCompletedGroups) {
+      return {
+        error: "Cannot revert to draft after group results have been recorded",
+      };
+    }
+
+    return withTransaction(async (tx) => {
+      await dbDeleteAllGroups(eventTournamentId, tx);
+      await dbResetAllParticipants(eventTournamentId, tx);
+      await dbUpdateTournament(
+        eventTournamentId,
+        { status: TournamentStatus.DRAFT, totalRounds: null },
+        tx,
+      );
+
+      return {
+        data: {
+          eventTournamentId,
+          eventId: tournamentData.eventId,
+        },
+      };
+    });
+  }
+
   const bracket = await dbGetBracket(eventTournamentId);
   const hasMatchesPlayed = bracket.some(
     (m) =>
@@ -2862,6 +2961,1026 @@ export async function revertEventTournamentToDraft(
     await dbUpdateTournament(
       eventTournamentId,
       { status: TournamentStatus.DRAFT, totalRounds: null },
+      tx,
+    );
+
+    return {
+      data: {
+        eventTournamentId,
+        eventId: tournamentData.eventId,
+      },
+    };
+  });
+}
+
+// FFA Group Stage functions
+
+function parseRoundConfig(tournament: EventTournament): FFARoundConfig | null {
+  if (!tournament.roundConfig) return null;
+  try {
+    return JSON.parse(tournament.roundConfig) as FFARoundConfig;
+  } catch {
+    return null;
+  }
+}
+
+async function generateFFAGroupStage(
+  eventTournamentId: string,
+  tournamentData: EventTournament,
+  participants: EventTournamentParticipantWithDetails[],
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const roundConfig = parseRoundConfig(tournamentData);
+  if (!roundConfig) {
+    return {
+      error: "Round configuration is required for FFA Group Stage tournaments",
+    };
+  }
+
+  const validationError = validateFFARoundConfig(
+    participants.length,
+    roundConfig,
+    MIN_FFA_GROUP_SIZE,
+    MAX_FFA_GROUP_SIZE,
+  );
+  if (validationError) {
+    return { error: validationError };
+  }
+
+  const round1Config = roundConfig["1"];
+  if (!round1Config) {
+    return { error: "Round 1 configuration is required" };
+  }
+
+  const totalRounds = Object.keys(roundConfig).length;
+
+  return withTransaction(async (tx) => {
+    const shuffled = [...participants];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const seedUpdates = shuffled.map((p, i) => ({
+      id: p.id,
+      seed: i + 1,
+    }));
+    await dbBulkUpdateSeeds(seedUpdates, tx);
+
+    const groupCount = Math.floor(shuffled.length / round1Config.groupSize);
+    const indices = Array.from({ length: shuffled.length }, (_, i) => i);
+    const groupAssignments = distributeIntoGroups(indices, groupCount);
+
+    const groupRows = groupAssignments.map((_, groupIdx) => ({
+      eventTournamentId,
+      round: 1,
+      position: groupIdx + 1,
+      advanceCount: round1Config.advanceCount,
+      isCompleted: false,
+    }));
+
+    const createdGroups = await dbCreateGroups(groupRows, tx);
+
+    const groupParticipantRows: {
+      eventTournamentGroupId: string;
+      eventTournamentParticipantId: string;
+    }[] = [];
+
+    for (let g = 0; g < groupAssignments.length; g++) {
+      const group = createdGroups.find(
+        (cg) => cg.position === g + 1 && cg.round === 1,
+      );
+      if (!group) continue;
+      for (const pIdx of groupAssignments[g]) {
+        groupParticipantRows.push({
+          eventTournamentGroupId: group.id,
+          eventTournamentParticipantId: shuffled[pIdx].id,
+        });
+      }
+    }
+
+    await dbCreateGroupParticipants(groupParticipantRows, tx);
+
+    await dbUpdateTournament(
+      eventTournamentId,
+      {
+        status: TournamentStatus.IN_PROGRESS,
+        totalRounds,
+      },
+      tx,
+    );
+
+    return {
+      data: {
+        eventTournamentId,
+        eventId: tournamentData.eventId,
+      },
+    };
+  });
+}
+
+export async function recordFFAGroupResult(
+  userId: string,
+  input: unknown,
+): Promise<
+  ServiceResult<{
+    eventMatchId: string;
+    eventTournamentId: string;
+    eventId: string;
+  }>
+> {
+  const parsed = recordFFAGroupResultSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: "Validation failed",
+      fieldErrors: formatZodErrors(parsed.error),
+    };
+  }
+
+  const { groupId, playedAt, results } = parsed.data;
+
+  const group = await dbGetGroupById(groupId);
+  if (!group) {
+    return { error: "Group not found" };
+  }
+
+  const tournamentData = await dbGetTournamentById(group.eventTournamentId);
+  if (!tournamentData) {
+    return { error: "Tournament not found" };
+  }
+
+  if (tournamentData.status !== TournamentStatus.IN_PROGRESS) {
+    return { error: "Tournament is not in progress" };
+  }
+
+  if (group.isCompleted) {
+    return { error: "Group result has already been recorded" };
+  }
+
+  const participation = await getEventParticipant(
+    tournamentData.eventId,
+    userId,
+  );
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  if (
+    !canPerformEventAction(participation.role, EventAction.CREATE_TOURNAMENTS)
+  ) {
+    return { error: "You do not have permission to record tournament results" };
+  }
+
+  const groupParticipants = await dbGetGroupParticipants(groupId);
+  if (groupParticipants.length !== results.length) {
+    return {
+      error: `Expected ${groupParticipants.length} results but received ${results.length}`,
+    };
+  }
+
+  const groupParticipantIds = new Set(
+    groupParticipants.map((gp) => gp.eventTournamentParticipantId),
+  );
+  for (const r of results) {
+    if (!groupParticipantIds.has(r.participantId)) {
+      return {
+        error: `Participant ${r.participantId} is not in this group`,
+      };
+    }
+  }
+
+  const allParticipants = await dbGetParticipants(group.eventTournamentId);
+  const participantMap = new Map(allParticipants.map((p) => [p.id, p]));
+
+  const roundConfig = parseRoundConfig(tournamentData);
+  const totalRounds = roundConfig ? Object.keys(roundConfig).length : 1;
+  const isFinalRound = group.round === totalRounds;
+
+  const gameType = await getEventGameTypeById(tournamentData.eventGameTypeId);
+  const ffaConfig = gameType ? parseFFAConfig(gameType.config) : null;
+
+  return withTransaction(async (tx) => {
+    const eventMatch = await createEventMatch(
+      {
+        eventId: tournamentData.eventId,
+        eventGameTypeId: tournamentData.eventGameTypeId,
+        eventTournamentRoundMatchId: null,
+        playedAt,
+        recorderId: userId,
+      },
+      tx,
+    );
+
+    const matchParticipantData = results.map((r) => {
+      const tp = participantMap.get(r.participantId);
+      return {
+        eventMatchId: eventMatch.id,
+        eventTeamId: tp?.eventTeamId ?? null,
+        userId: tp?.userId ?? null,
+        eventPlaceholderParticipantId:
+          tp?.eventPlaceholderParticipantId ?? null,
+        side: null as number | null,
+        score: r.score ?? null,
+        rank: r.rank ?? null,
+        result: null as MatchResult | null,
+      };
+    });
+
+    await createEventMatchParticipants(matchParticipantData, tx);
+
+    const gpMap = new Map(
+      groupParticipants.map((gp) => [gp.eventTournamentParticipantId, gp]),
+    );
+
+    const sortedResults = [...results].sort((a, b) => {
+      if (a.rank != null && b.rank != null) return a.rank - b.rank;
+      if (a.rank != null) return -1;
+      if (b.rank != null) return 1;
+      if (a.score != null && b.score != null) {
+        if (ffaConfig?.scoreOrder === "lowest_wins") return a.score - b.score;
+        return b.score - a.score;
+      }
+      return 0;
+    });
+
+    const rankedResults = sortedResults.map((r, i) => ({
+      ...r,
+      computedRank: r.rank ?? i + 1,
+    }));
+
+    const updates = rankedResults.map((r) => {
+      const gp = gpMap.get(r.participantId);
+      return {
+        id: gp!.id,
+        rank: r.computedRank,
+        score: r.score ?? null,
+        advanced: r.computedRank <= group.advanceCount,
+      };
+    });
+
+    await dbBulkUpdateGroupParticipants(updates, tx);
+
+    await dbUpdateGroup(
+      groupId,
+      { eventMatchId: eventMatch.id, isCompleted: true },
+      tx,
+    );
+
+    if (!isFinalRound) {
+      for (const r of rankedResults) {
+        if (r.computedRank > group.advanceCount) {
+          await dbUpdateParticipant(
+            r.participantId,
+            { isEliminated: true, eliminatedInRound: group.round },
+            tx,
+          );
+        }
+      }
+    }
+
+    const roundGroups = await dbGetGroupsByRound(
+      group.eventTournamentId,
+      group.round,
+      tx,
+    );
+    const allGroupsComplete = roundGroups.every(
+      (g) => g.id === groupId || g.isCompleted,
+    );
+
+    if (allGroupsComplete) {
+      if (isFinalRound) {
+        await completeFFATournament(tournamentData, roundConfig, tx);
+      } else {
+        await generateNextFFARound(
+          tournamentData,
+          group.round,
+          roundConfig!,
+          tx,
+        );
+      }
+    }
+
+    return {
+      data: {
+        eventMatchId: eventMatch.id,
+        eventTournamentId: group.eventTournamentId,
+        eventId: tournamentData.eventId,
+      },
+    };
+  });
+}
+
+async function generateNextFFARound(
+  tournamentData: EventTournament,
+  completedRound: number,
+  roundConfig: FFARoundConfig,
+  tx: DBOrTx,
+): Promise<void> {
+  const nextRound = completedRound + 1;
+  const nextRoundConfig = roundConfig[String(nextRound)];
+  if (!nextRoundConfig) return;
+
+  const groups = await dbGetGroupsWithParticipants(tournamentData.id, tx);
+
+  const completedRoundGroups = groups
+    .filter((g) => g.round === completedRound)
+    .sort((a, b) => a.position - b.position);
+
+  const advancingParticipantIds: string[] = [];
+  for (const group of completedRoundGroups) {
+    const advanced = group.participants
+      .filter((p) => p.advanced)
+      .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
+    for (const p of advanced) {
+      advancingParticipantIds.push(p.eventTournamentParticipantId);
+    }
+  }
+
+  const groupCount = Math.floor(
+    advancingParticipantIds.length / nextRoundConfig.groupSize,
+  );
+  const indices = Array.from(
+    { length: advancingParticipantIds.length },
+    (_, i) => i,
+  );
+  const groupAssignments = distributeIntoGroups(indices, groupCount);
+
+  const groupRows = groupAssignments.map((_, groupIdx) => ({
+    eventTournamentId: tournamentData.id,
+    round: nextRound,
+    position: groupIdx + 1,
+    advanceCount: nextRoundConfig.advanceCount,
+    isCompleted: false,
+  }));
+
+  const createdGroups = await dbCreateGroups(groupRows, tx);
+
+  const groupParticipantRows: {
+    eventTournamentGroupId: string;
+    eventTournamentParticipantId: string;
+  }[] = [];
+
+  for (let g = 0; g < groupAssignments.length; g++) {
+    const group = createdGroups.find(
+      (cg) => cg.position === g + 1 && cg.round === nextRound,
+    );
+    if (!group) continue;
+    for (const pIdx of groupAssignments[g]) {
+      groupParticipantRows.push({
+        eventTournamentGroupId: group.id,
+        eventTournamentParticipantId: advancingParticipantIds[pIdx],
+      });
+    }
+  }
+
+  await dbCreateGroupParticipants(groupParticipantRows, tx);
+}
+
+async function completeFFATournament(
+  tournamentData: EventTournament,
+  roundConfig: FFARoundConfig | null,
+  tx: DBOrTx,
+): Promise<void> {
+  const groups = await dbGetGroupsWithParticipants(tournamentData.id, tx);
+  const totalRounds = roundConfig ? Object.keys(roundConfig).length : 1;
+
+  type PlacementEntry = {
+    participantId: string;
+    eliminatedInRound: number | null;
+    rank: number | null;
+  };
+  const entries: PlacementEntry[] = [];
+
+  for (const group of groups) {
+    for (const gp of group.participants) {
+      const existing = entries.find(
+        (e) => e.participantId === gp.eventTournamentParticipantId,
+      );
+      if (group.round === totalRounds) {
+        if (existing) {
+          existing.eliminatedInRound = null;
+          existing.rank = gp.rank;
+        } else {
+          entries.push({
+            participantId: gp.eventTournamentParticipantId,
+            eliminatedInRound: null,
+            rank: gp.rank,
+          });
+        }
+      } else if (!existing) {
+        const wasEliminated = !gp.advanced;
+        entries.push({
+          participantId: gp.eventTournamentParticipantId,
+          eliminatedInRound: wasEliminated ? group.round : null,
+          rank: gp.rank,
+        });
+      }
+    }
+  }
+
+  entries.sort((a, b) => {
+    const aFinal = a.eliminatedInRound === null;
+    const bFinal = b.eliminatedInRound === null;
+    if (aFinal && !bFinal) return -1;
+    if (!aFinal && bFinal) return 1;
+    if (aFinal && bFinal) {
+      return (a.rank ?? 999) - (b.rank ?? 999);
+    }
+    const aRound = a.eliminatedInRound ?? 0;
+    const bRound = b.eliminatedInRound ?? 0;
+    if (aRound !== bRound) return bRound - aRound;
+    return (a.rank ?? 999) - (b.rank ?? 999);
+  });
+
+  for (let i = 0; i < entries.length; i++) {
+    await dbUpdateParticipant(
+      entries[i].participantId,
+      { finalPlacement: i + 1 },
+      tx,
+    );
+  }
+
+  await dbUpdateTournament(
+    tournamentData.id,
+    {
+      status: TournamentStatus.COMPLETED,
+      completedAt: new Date(),
+    },
+    tx,
+  );
+
+  const completedTournament = await dbGetTournamentById(tournamentData.id, tx);
+  if (completedTournament) {
+    await awardTournamentPlacementPoints(completedTournament, tx);
+  }
+}
+
+export async function undoFFAGroupResult(
+  userId: string,
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const parsed = undoFFAGroupResultSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: "Validation failed",
+      fieldErrors: formatZodErrors(parsed.error),
+    };
+  }
+
+  const { groupId } = parsed.data;
+
+  const group = await dbGetGroupById(groupId);
+  if (!group) {
+    return { error: "Group not found" };
+  }
+
+  if (!group.isCompleted) {
+    return { error: "Group result has not been recorded yet" };
+  }
+
+  const tournamentData = await dbGetTournamentById(group.eventTournamentId);
+  if (!tournamentData) {
+    return { error: "Tournament not found" };
+  }
+
+  const participation = await getEventParticipant(
+    tournamentData.eventId,
+    userId,
+  );
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  if (
+    !canPerformEventAction(participation.role, EventAction.CREATE_TOURNAMENTS)
+  ) {
+    return { error: "You do not have permission to manage tournament results" };
+  }
+
+  const roundConfig = parseRoundConfig(tournamentData);
+  const totalRounds = roundConfig ? Object.keys(roundConfig).length : 1;
+  const isFinalRound = group.round === totalRounds;
+
+  if (!isFinalRound) {
+    const nextRoundGroups = await dbGetGroupsByRound(
+      group.eventTournamentId,
+      group.round + 1,
+    );
+    const hasCompletedNextRoundGroups = nextRoundGroups.some(
+      (g) => g.isCompleted,
+    );
+    if (hasCompletedNextRoundGroups) {
+      return {
+        error:
+          "Cannot undo: the next round has completed groups. Undo those first.",
+      };
+    }
+
+    if (nextRoundGroups.length > 0) {
+      return withTransaction(async (tx) => {
+        await dbDeleteGroupsByRound(
+          group.eventTournamentId,
+          group.round + 1,
+          tx,
+        );
+        await resetFFAGroup(group, isFinalRound, tx);
+        return {
+          data: {
+            eventTournamentId: group.eventTournamentId,
+            eventId: tournamentData.eventId,
+          },
+        };
+      });
+    }
+  }
+
+  return withTransaction(async (tx) => {
+    if (isFinalRound && tournamentData.status === TournamentStatus.COMPLETED) {
+      await deleteEventPointEntriesForTournament(tournamentData.id, tx);
+      const participants = await dbGetParticipants(tournamentData.id, tx);
+      for (const p of participants) {
+        await dbUpdateParticipant(p.id, { finalPlacement: null }, tx);
+      }
+      await dbUpdateTournament(
+        tournamentData.id,
+        {
+          status: TournamentStatus.IN_PROGRESS,
+          completedAt: null,
+        },
+        tx,
+      );
+    }
+    await resetFFAGroup(group, isFinalRound, tx);
+    return {
+      data: {
+        eventTournamentId: group.eventTournamentId,
+        eventId: tournamentData.eventId,
+      },
+    };
+  });
+}
+
+async function resetFFAGroup(
+  group: NonNullable<Awaited<ReturnType<typeof dbGetGroupById>>>,
+  isFinalRound: boolean,
+  tx: DBOrTx,
+): Promise<void> {
+  const groupParticipants = await dbGetGroupParticipants(group.id, tx);
+
+  const clearUpdates = groupParticipants.map((gp) => ({
+    id: gp.id,
+    rank: null as number | null,
+    score: null as number | null,
+    advanced: false,
+  }));
+  await dbBulkUpdateGroupParticipants(clearUpdates, tx);
+
+  if (!isFinalRound) {
+    for (const gp of groupParticipants) {
+      await dbUpdateParticipant(
+        gp.eventTournamentParticipantId,
+        { isEliminated: false, eliminatedInRound: null },
+        tx,
+      );
+    }
+  }
+
+  if (group.eventMatchId) {
+    await deleteEventMatch(group.eventMatchId, tx);
+  }
+
+  await dbUpdateGroup(group.id, { eventMatchId: null, isCompleted: false }, tx);
+}
+
+export async function updateFFAGroupAssignments(
+  userId: string,
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const parsed = updateFFAGroupAssignmentsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: "Validation failed",
+      fieldErrors: formatZodErrors(parsed.error),
+    };
+  }
+
+  const data = parsed.data;
+
+  const tournamentData = await dbGetTournamentById(data.eventTournamentId);
+  if (!tournamentData) {
+    return { error: "Tournament not found" };
+  }
+
+  if (tournamentData.tournamentType !== TournamentType.FFA_GROUP_STAGE) {
+    return { error: "This action is only for FFA Group Stage tournaments" };
+  }
+
+  if (tournamentData.status !== TournamentStatus.IN_PROGRESS) {
+    return { error: "Tournament is not in progress" };
+  }
+
+  const participation = await getEventParticipant(
+    tournamentData.eventId,
+    userId,
+  );
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  if (
+    !canPerformEventAction(participation.role, EventAction.CREATE_TOURNAMENTS)
+  ) {
+    return { error: "You do not have permission to manage tournaments" };
+  }
+
+  const existingGroups = await dbGetGroupsByRound(
+    data.eventTournamentId,
+    data.round,
+  );
+  if (existingGroups.length === 0) {
+    return { error: "No groups exist for this round" };
+  }
+
+  const hasCompletedGroups = existingGroups.some((g) => g.isCompleted);
+  if (hasCompletedGroups) {
+    return {
+      error: "Cannot edit groups after results have been recorded",
+    };
+  }
+
+  const existingGroupIds = new Set(existingGroups.map((g) => g.id));
+  const inputGroupIds = new Set(data.groups.map((g) => g.groupId));
+
+  if (existingGroupIds.size !== inputGroupIds.size) {
+    return { error: "Must include all groups for this round" };
+  }
+  for (const id of inputGroupIds) {
+    if (!existingGroupIds.has(id)) {
+      return { error: "Invalid group ID" };
+    }
+  }
+
+  const existingParticipantIds = new Set<string>();
+  for (const group of existingGroups) {
+    const groupParticipants = await dbGetGroupParticipants(group.id);
+    for (const gp of groupParticipants) {
+      existingParticipantIds.add(gp.eventTournamentParticipantId);
+    }
+  }
+
+  const newParticipantIds: string[] = [];
+  for (const group of data.groups) {
+    for (const pid of group.participantIds) {
+      newParticipantIds.push(pid);
+    }
+  }
+
+  if (newParticipantIds.length !== new Set(newParticipantIds).size) {
+    return { error: "Each participant must appear exactly once across groups" };
+  }
+
+  if (newParticipantIds.length !== existingParticipantIds.size) {
+    return {
+      error: "All participants must be included in the new assignments",
+    };
+  }
+
+  for (const pid of newParticipantIds) {
+    if (!existingParticipantIds.has(pid)) {
+      return { error: "Invalid participant ID in group assignments" };
+    }
+  }
+
+  return withTransaction(async (tx) => {
+    const groupIds = existingGroups.map((g) => g.id);
+    await dbDeleteGroupParticipantsByGroupIds(groupIds, tx);
+
+    for (const group of data.groups) {
+      await dbCreateGroupParticipants(
+        group.participantIds.map((participantId) => ({
+          eventTournamentGroupId: group.groupId,
+          eventTournamentParticipantId: participantId,
+        })),
+        tx,
+      );
+    }
+
+    return {
+      data: {
+        eventTournamentId: data.eventTournamentId,
+        eventId: tournamentData.eventId,
+      },
+    };
+  });
+}
+
+export async function manualFFAGroupSetup(
+  userId: string,
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const parsed = manualFFAGroupSetupSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: "Validation failed",
+      fieldErrors: formatZodErrors(parsed.error),
+    };
+  }
+
+  const data = parsed.data;
+  const { eventTournamentId } = data;
+
+  const tournamentData = await dbGetTournamentById(eventTournamentId);
+  if (!tournamentData) {
+    return { error: "Tournament not found" };
+  }
+
+  if (tournamentData.tournamentType !== TournamentType.FFA_GROUP_STAGE) {
+    return { error: "This action is only for FFA Group Stage tournaments" };
+  }
+
+  if (tournamentData.status !== TournamentStatus.DRAFT) {
+    return { error: "Tournament must be in DRAFT status" };
+  }
+
+  const participation = await getEventParticipant(
+    tournamentData.eventId,
+    userId,
+  );
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  if (
+    !canPerformEventAction(participation.role, EventAction.CREATE_TOURNAMENTS)
+  ) {
+    return { error: "You do not have permission to manage tournaments" };
+  }
+
+  const participants = await dbGetParticipants(eventTournamentId);
+  if (participants.length < MIN_TOURNAMENT_PARTICIPANTS) {
+    return {
+      error: `At least ${MIN_TOURNAMENT_PARTICIPANTS} participants are required`,
+    };
+  }
+
+  const roundConfig = parseRoundConfig(tournamentData);
+  if (!roundConfig) {
+    return {
+      error: "Round configuration is required for FFA Group Stage tournaments",
+    };
+  }
+
+  const validationError = validateFFARoundConfig(
+    participants.length,
+    roundConfig,
+    MIN_FFA_GROUP_SIZE,
+    MAX_FFA_GROUP_SIZE,
+  );
+  if (validationError) {
+    return { error: validationError };
+  }
+
+  const round1Config = roundConfig["1"];
+  if (!round1Config) {
+    return { error: "Round 1 configuration is required" };
+  }
+
+  const expectedGroupCount = Math.floor(
+    participants.length / round1Config.groupSize,
+  );
+  if (data.groups.length !== expectedGroupCount) {
+    return {
+      error: `Expected ${expectedGroupCount} groups, got ${data.groups.length}`,
+    };
+  }
+
+  const validParticipantIds = new Set(participants.map((p) => p.id));
+  const allAssignedIds: string[] = [];
+
+  for (let i = 0; i < data.groups.length; i++) {
+    const group = data.groups[i];
+    if (group.participantIds.length < MIN_FFA_GROUP_SIZE) {
+      return {
+        error: `Group ${i + 1} must have at least ${MIN_FFA_GROUP_SIZE} participants`,
+      };
+    }
+    for (const pid of group.participantIds) {
+      if (!validParticipantIds.has(pid)) {
+        return { error: "Invalid participant ID in group assignments" };
+      }
+      allAssignedIds.push(pid);
+    }
+  }
+
+  if (allAssignedIds.length !== new Set(allAssignedIds).size) {
+    return { error: "Each participant must appear in exactly one group" };
+  }
+
+  if (allAssignedIds.length !== participants.length) {
+    return { error: "All participants must be assigned to a group" };
+  }
+
+  const totalRounds = Object.keys(roundConfig).length;
+
+  return withTransaction(async (tx) => {
+    let seedIdx = 0;
+    const seedUpdates: { id: string; seed: number }[] = [];
+    for (const group of data.groups) {
+      for (const pid of group.participantIds) {
+        seedIdx++;
+        seedUpdates.push({ id: pid, seed: seedIdx });
+      }
+    }
+    await dbBulkUpdateSeeds(seedUpdates, tx);
+
+    const groupRows = data.groups.map((_, groupIdx) => ({
+      eventTournamentId,
+      round: 1,
+      position: groupIdx + 1,
+      advanceCount: round1Config.advanceCount,
+      isCompleted: false,
+    }));
+
+    const createdGroups = await dbCreateGroups(groupRows, tx);
+
+    const groupParticipantRows: {
+      eventTournamentGroupId: string;
+      eventTournamentParticipantId: string;
+    }[] = [];
+
+    for (let g = 0; g < data.groups.length; g++) {
+      const group = createdGroups.find(
+        (cg) => cg.position === g + 1 && cg.round === 1,
+      );
+      if (!group) continue;
+      for (const pid of data.groups[g].participantIds) {
+        groupParticipantRows.push({
+          eventTournamentGroupId: group.id,
+          eventTournamentParticipantId: pid,
+        });
+      }
+    }
+
+    await dbCreateGroupParticipants(groupParticipantRows, tx);
+
+    await dbUpdateTournament(
+      eventTournamentId,
+      {
+        status: TournamentStatus.IN_PROGRESS,
+        totalRounds,
+      },
+      tx,
+    );
+
+    return {
+      data: {
+        eventTournamentId,
+        eventId: tournamentData.eventId,
+      },
+    };
+  });
+}
+
+export async function manualSwissRound1Setup(
+  userId: string,
+  input: unknown,
+): Promise<ServiceResult<{ eventTournamentId: string; eventId: string }>> {
+  const parsed = manualSwissRound1SetupSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: "Validation failed",
+      fieldErrors: formatZodErrors(parsed.error),
+    };
+  }
+
+  const data = parsed.data;
+  const { eventTournamentId } = data;
+
+  const tournamentData = await dbGetTournamentById(eventTournamentId);
+  if (!tournamentData) {
+    return { error: "Tournament not found" };
+  }
+
+  if (tournamentData.tournamentType !== TournamentType.SWISS) {
+    return { error: "This action is only for Swiss tournaments" };
+  }
+
+  if (tournamentData.status !== TournamentStatus.DRAFT) {
+    return { error: "Tournament must be in DRAFT status" };
+  }
+
+  const participation = await getEventParticipant(
+    tournamentData.eventId,
+    userId,
+  );
+  if (!participation) {
+    return { error: "You are not a participant in this event" };
+  }
+
+  if (
+    !canPerformEventAction(participation.role, EventAction.CREATE_TOURNAMENTS)
+  ) {
+    return { error: "You do not have permission to manage tournaments" };
+  }
+
+  const participants = await dbGetParticipants(eventTournamentId);
+  if (participants.length < MIN_TOURNAMENT_PARTICIPANTS) {
+    return {
+      error: `At least ${MIN_TOURNAMENT_PARTICIPANTS} participants are required`,
+    };
+  }
+
+  const validParticipantIds = new Set(participants.map((p) => p.id));
+  const newParticipantIds: string[] = [];
+  let byeCount = 0;
+
+  for (const pairing of data.pairings) {
+    if (!validParticipantIds.has(pairing.participant1Id)) {
+      return { error: "Invalid participant ID in pairings" };
+    }
+    newParticipantIds.push(pairing.participant1Id);
+
+    if (pairing.isBye) {
+      byeCount++;
+      if (pairing.participant2Id !== null) {
+        return { error: "Bye matches must not have a second participant" };
+      }
+    } else {
+      if (pairing.participant2Id === null) {
+        return { error: "Non-bye matches must have two participants" };
+      }
+      if (!validParticipantIds.has(pairing.participant2Id)) {
+        return { error: "Invalid participant ID in pairings" };
+      }
+      newParticipantIds.push(pairing.participant2Id);
+    }
+  }
+
+  if (newParticipantIds.length !== new Set(newParticipantIds).size) {
+    return { error: "Each participant must appear exactly once in pairings" };
+  }
+
+  if (newParticipantIds.length !== participants.length) {
+    return { error: "Pairings must include all tournament participants" };
+  }
+
+  const expectedByeCount = participants.length % 2 === 1 ? 1 : 0;
+  if (byeCount !== expectedByeCount) {
+    return {
+      error:
+        expectedByeCount === 0
+          ? "No byes should exist with an even number of participants"
+          : "Exactly one bye is required with an odd number of participants",
+    };
+  }
+
+  const totalRounds =
+    tournamentData.totalRounds ?? Math.ceil(Math.log2(participants.length));
+
+  return withTransaction(async (tx) => {
+    const roundMatchData = data.pairings
+      .filter((p) => !p.isBye)
+      .map((pairing, i) => ({
+        eventTournamentId,
+        round: 1,
+        position: i + 1,
+        participant1Id: pairing.participant1Id,
+        participant2Id: pairing.participant2Id as string | null,
+        winnerId: null as string | null,
+        eventMatchId: null as string | null,
+        isBye: false,
+        isForfeit: false,
+        participant1Score: null as number | null,
+        participant2Score: null as number | null,
+        nextMatchId: null as string | null,
+        nextMatchSlot: null as number | null,
+      }));
+
+    const byePairing = data.pairings.find((p) => p.isBye);
+    if (byePairing) {
+      roundMatchData.push({
+        eventTournamentId,
+        round: 1,
+        position: roundMatchData.length + 1,
+        participant1Id: byePairing.participant1Id,
+        participant2Id: null,
+        winnerId: byePairing.participant1Id,
+        eventMatchId: null as string | null,
+        isBye: true,
+        isForfeit: false,
+        participant1Score: null as number | null,
+        participant2Score: null as number | null,
+        nextMatchId: null as string | null,
+        nextMatchSlot: null as number | null,
+      });
+    }
+
+    await dbCreateRoundMatches(roundMatchData, tx);
+
+    await dbUpdateTournament(
+      eventTournamentId,
+      {
+        status: TournamentStatus.IN_PROGRESS,
+        totalRounds,
+      },
       tx,
     );
 

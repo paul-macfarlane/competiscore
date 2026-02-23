@@ -74,6 +74,7 @@ export default async function EditEventTournamentPage({ params }: PageProps) {
           totalRounds={tournament.totalRounds ?? null}
           bestOf={tournament.bestOf}
           roundBestOf={tournament.roundBestOf}
+          roundConfig={tournament.roundConfig ?? null}
           placementPointConfig={tournament.placementPointConfig ?? null}
         />
       </div>
